@@ -17,7 +17,7 @@ if sys.version_info[0] < 3:
 	from utils import *
 else:
 	print("Using Python " + str(sys.version_info[0]))
-	from src.data_utils import DataHandler as dh
+	# from src.data_utils import DataHandler as dh
 	from src.data_utils import DataHandlerLSTM as dhlstm
 	from src.data_utils.plot_utils import *
 	from src.data_utils import Support as sup
