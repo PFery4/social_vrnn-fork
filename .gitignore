@@ -6,3 +6,4 @@ dist
 social_vrnn.egg-info
 *.csv
 build
+.idea
