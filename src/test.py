@@ -76,7 +76,20 @@ def parse_args():
 	return args
 
 
+def summarise_args(args):
+    """
+    print all arguments specified within the parser's Namespace
+    """
+    print("Test Arguments Summary:\n")
+    for key, val in vars(args).items():
+        print(Fore.YELLOW + f"{str(key).ljust(30)}:\t{val}" + Style.RESET_ALL)
+    return None
+
+
 test_args = parse_args()
+
+#summary of the arguments
+summarise_args(test_args)
 
 if test_args.gpu:
 	import tensorflow as tf
@@ -168,7 +181,7 @@ with tf.Session(config=config) as sess:
 	try:
 		model.warmstart_convnet(args, sess)
 	except:
-		print("")
+		print("No model.warmstart_convnet(args, sess)")
 
 	for exp_id in range(np.minimum(test_args.num_test_sequences, len(data_prep.trajectory_set) - 1)):
 		predictions = []

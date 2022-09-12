@@ -270,8 +270,20 @@ def parse_args():
 
 	return args
 
+def summarise_args(args):
+    """
+    print all arguments specified within the parser's Namespace
+    """
+    print("Training Arguments Summary:\n")
+    for key, val in vars(args).items():
+        print(Fore.YELLOW + f"{str(key).ljust(30)}:\t{val}" + Style.RESET_ALL)
+    return None
 
 args = parse_args()
+
+summarise_args(args)
+
+print(zblu)
 
 # Enable / Disable GPU
 if args.gpu:
