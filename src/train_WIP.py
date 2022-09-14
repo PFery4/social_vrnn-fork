@@ -3,8 +3,6 @@ import sys
 sys.path.append('../')
 import json
 import importlib
-
-print("Using Python " + str(sys.version_info[0]))
 from src.data_utils import DataHandlerLSTM as dhlstm
 from src.data_utils.plot_utils import *
 from src.data_utils.utils import *
@@ -15,29 +13,29 @@ from colorama import Fore, Style
 import tensorflow as tf
 
 
-# os.environ['TF_ENABLE_AUTO_MIXED_PRECISION'] = '1'
-
+### DEFINITIONS
 
 def parse_args():
     """
-	Specify the hyperparameters and settings for running the script
-	"""
+    Specify the hyperparameters and settings for running the script
+    """
     pretrained_convnet_path = "../trained_models/autoencoder_with_ped"
 
     data_path = '../data/'
-    scenario = 'GA3C-CADRL-10-py27'
-    exp_num = 6
+    scenario = 'real_world/ewap_dataset/seq_hotel'
+    exp_num = 123456789
 
     # Hyperparameters
     n_epochs = 2
-    batch_size = 128
+    batch_size = 16
     regularization_weight = 0.0001
 
     # Time parameters
-    truncated_backprop_length = 10
-    prediction_horizon = 10
-    prev_horizon = 0
+    truncated_backprop_length = 3
+    prediction_horizon = 12
+    prev_horizon = 7
 
+    #
     rnn_state_size = 32
     rnn_state_size_lstm_grid = 256
     rnn_state_size_lstm_ped = 128
@@ -52,7 +50,7 @@ def parse_args():
     keep_prob = 1.0
     dropout = False
     reg = 1e-4
-    n_mixtures = 1  # USE ZERO FOR MSE MODEL
+    n_mixtures = 3  # USE ZERO FOR MSE MODEL
     grads_clip = 1.0
     n_other_agents = 18
     tensorboard_logging = True
@@ -68,11 +66,13 @@ def parse_args():
     pedestrian_radius = 0.3
     max_range_ped_grid = 5
 
+    #
     print_freq = 200
     save_freq = 500
     total_training_steps = 20000
-    dt = 0.1
+    dt = 0.4
 
+    #
     warmstart_model = False
     pretrained_convnet = False
     pretained_encoder = False
@@ -97,15 +97,11 @@ def parse_args():
     # Dataset division
     train_set = 0.8
 
-    # Input Module selection
-    freeze_past_traj = False
-    freeze_map_cnn = False
-
     parser = argparse.ArgumentParser(description='LSTM model training')
 
     parser.add_argument('--model_name',
                         help='Path to directory that comprises the model (default="model_name").',
-                        type=str, default="RNN")
+                        type=str, default="WIP_SocialVRNN")
     parser.add_argument('--model_path',
                         help='Path to directory to save the model (default=""../trained_models/"+model_name").',
                         type=str, default='../trained_models/')
@@ -224,7 +220,7 @@ def parse_args():
     parser.add_argument('--predict_positions', help='predict_positions.', type=sup.str2bool, default=predict_positions)
     parser.add_argument('--gpu', help='Enable GPU training.', type=sup.str2bool, default=False)
     parser.add_argument('--sequence_info', help='Use relative info for other agents.', type=sup.str2bool, default=False)
-    parser.add_argument('--others_info', help='Use relative info for other agents.', type=str, default="none")
+    parser.add_argument('--others_info', help='Use relative info for other agents.', type=str, default="relative")
     parser.add_argument('--regulate_log_loss', help='Enable GPU training.', type=sup.str2bool,
                         default=regulate_log_loss)
     parser.add_argument('--diversity_update', help='diversity_update', type=sup.str2bool, default=diversity_update)
@@ -252,202 +248,223 @@ def parse_args():
     return parsed_args
 
 
-def summarise_args(parsed_args):
+def print_args(parsed_args: argparse.Namespace, spacing: int = 45) -> None:
     """
     print all arguments specified within the parser's Namespace.
     """
-    print("Training Arguments Summary:\n")
+    print(Fore.YELLOW + "Training Arguments Summary:\n")
     for key, val in vars(parsed_args).items():
-        print(Fore.YELLOW + f"{str(key).ljust(30)}:\t{val}" + Style.RESET_ALL)
+        print(f"{str(key).ljust(spacing)}:\t{val}" + Style.RESET_ALL)
     return None
 
 
-args = parse_args()
-
-summarise_args(args)
-
-# Enable / Disable GPU
-if not args.gpu:
-    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-# Create Log and Model Directory to save training model
-args.model_path = '../trained_models/' + args.model_name + "/" + str(args.exp_num)
-args.log_dir = args.model_path + '/log'
-if not os.path.exists(args.log_dir):
-    print(Fore.GREEN + f"creating log directory in: {args.log_dir}" + Style.RESET_ALL)
-    os.makedirs(args.log_dir)
-args.dataset = '/' + args.scenario + '.pkl'
-model_parameters = {"args": args}
-
-# Check whether model folder exists, otherwise make directory
-if not os.path.exists(args.model_path):
-    print(Fore.GREEN + f"creating model folder in: {args.model_path}" + Style.RESET_ALL)
-    os.makedirs(args.model_path)
-
-# Save Model Parameters
-param_file = open(args.model_path + '/model_parameters.pkl', 'wb')
-pkl.dump(model_parameters, param_file, protocol=2)  # encoding='latin1'
-param_file.close()
-with open(args.model_path + '/model_parameters.json', 'w') as f:
-    json.dump(args.__dict__, f)
-
-# Create Datahandler class
-data_prep = dhlstm.DataHandlerLSTM(args)
-# Only used to create a map from png
-# Make sure this parameters are correct otherwise it will fail training and plotting the results
-map_args = {"file_name": 'map.png',
-            "resolution": 0.1,
-            "map_size": np.array([30., 6.]), }
-# Load dataset
-data_prep.processData(**map_args)
-
-# Import Deep Learning model
-module = importlib.import_module("src.models." + args.model_name)
-globals().update(module.__dict__)
-
-# Create Model Graph
-model = NetworkModel(args)
-
-# # see the trainable variables
-# print(f"tf.trainable_variables() = {tf.trainable_variables()}")
-# for var in tf.trainable_variables():
-#     print(var)
+### MAIN FUNCTION
 
 
-config = tf.ConfigProto()
+if __name__ == '__main__':
+    print("Using Python " + str(sys.version_info[0]))
 
-# Start Training Session
-with tf.Session(config=config) as sess:
-    # Load a pre-trained model
-    if args.warmstart_model:
-        model.warmstart_model(args, sess)
-    else:
-        # Initialize all TF variables
-        sess.run(tf.global_variables_initializer())
+    # os.environ['TF_ENABLE_AUTO_MIXED_PRECISION'] = '1'
 
-    # Load Convnet Model
-    try:
-        if args.warm_start_convnet:
-            model.warmstart_convnet(args, sess)
-    except:
-        print("Failed to initialized Convnet or Convnet does not exist")
+    args = parse_args()
 
-    # if the training was interrupted load last training step index
-    try:
-        initial_step = int(open(args.model_path + "/tf_log", 'r').read().split('\n')[-2]) + 1
-    except:
-        initial_step = 1
+    print_args(args)
 
-    epoch = 0
-    training_loss = []
-    diversity_loss = []
-    training_loss.append(0)
+    # Enable / Disable GPU
+    # if not args.gpu:
+    #     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-    # Set up multithreading for data handler
-    pool = ThreadPool(1)
-    res = None
-    _model_prediction = []
-    start_time = time.time()
-    best_loss = float('inf')
-    avg_training_loss = np.ones(100)
+    # Create Log and Model Directory to save training model
+    args.model_path = '../trained_models/' + args.model_name + "/" + str(args.exp_num)
+    args.log_dir = args.model_path + '/log'
+    if not os.path.exists(args.log_dir):
+        print(Fore.GREEN + f"creating log directory in: {args.log_dir}" + Style.RESET_ALL)
+        os.makedirs(args.log_dir)
+    args.dataset = '/' + args.scenario + '.pkl'
+    model_parameters = {"args": args}
 
-    for step in range(initial_step, args.total_training_steps):
-        start_time_loop = time.time()
+    # Check whether model folder exists, otherwise make directory
+    if not os.path.exists(args.model_path):
+        print(Fore.GREEN + f"creating model folder in: {args.model_path}" + Style.RESET_ALL)
+        os.makedirs(args.model_path)
 
-        # Get Next Batch of Data
-        if res == None:
-            batch_x, batch_vel, batch_pos, batch_goal, batch_grid, batch_ped_grid, batch_y, batch_pos_target, other_agents_pos, new_epoch = data_prep.getBatch()
+    # Save Model Parameters
+    param_file = open(args.model_path + '/model_parameters.pkl', 'wb')
+    pkl.dump(model_parameters, param_file, protocol=2)  # encoding='latin1'
+    param_file.close()
+    with open(args.model_path + '/model_parameters.json', 'w') as f:
+        json.dump(args.__dict__, f)
+
+    # Create Datahandler class
+    data_prep = dhlstm.DataHandlerLSTM(args)
+    # Only used to create a map from png
+    # Make sure these parameters are correct otherwise it will fail training and plotting the results
+    map_args = {"file_name": 'map.png',
+                "resolution": 0.1,
+                "map_size": np.array([30., 6.])}
+    # Load dataset
+    data_prep.processData(**map_args)
+
+    # Import Deep Learning model
+    module = importlib.import_module("src.models." + args.model_name)
+    globals().update(module.__dict__)
+
+    # Create Model Graph
+    model = NetworkModel(args)
+
+    # # see the trainable variables
+    # print(f"tf.trainable_variables() = {tf.trainable_variables()}")
+    # for var in tf.trainable_variables():
+    #     print(var)
+
+    # TensorFlow CPU and GPU configurations, see:
+    # https://liyin2015.medium.com/tensorflow-cpus-and-gpus-configuration-9c223436d4ef
+    config = tf.ConfigProto()
+
+    # Start Training Session
+    with tf.Session(config=config) as sess:
+        # Load a pre-trained model
+        if args.warmstart_model:
+            model.warmstart_model(args, sess)
         else:
-            batch = res.get(timeout=5)
+            # Initialize all TF variables
+            sess.run(tf.global_variables_initializer())
 
-        # Create dictionary to feed into the model
-        dict = {"batch_x": batch_x,
-                "batch_vel": batch_vel,
-                "batch_pos": batch_pos,
-                "batch_goal": batch_goal,
-                "batch_grid": batch_grid,
-                "batch_ped_grid": batch_ped_grid,
-                "step": step,
-                "batch_y": batch_y,
-                "batch_pos_target": batch_pos_target,
-                "batch_div": batch_y,
-                "other_agents_pos": other_agents_pos
-                }
+        # Load Convnet Model
+        try:
+            if args.warm_start_convnet:
+                model.warmstart_convnet(args, sess)
+        except:
+            print("Failed to initialized Convnet or Convnet does not exist")
 
-        feed_dict_train = model.feed_dic(**dict)
+        # if the training was interrupted load last training step index
+        try:
+            initial_step = int(open(args.model_path + "/tf_log", 'r').read().split('\n')[-2]) + 1
+        except:
+            initial_step = 1
 
-        # res = pool.apply_async(data_prep.getBatch)
+        epoch = 0
+        training_loss = []
+        diversity_loss = []
+        training_loss.append(0)
 
-        epoch += new_epoch
+        # Set up multithreading for data handler
+        pool = ThreadPool(1)
+        res = None
+        _model_prediction = []
+        start_time = time.time()
+        best_loss = float('inf')
+        avg_training_loss = np.ones(100)
 
-        # Initialize the new sequences with a hidden state of zeros, the continuing sequences get assigned the previous hidden state
-        model.reset_cells(data_prep.sequence_reset)
+        print("DOING SOMETHING OVER HERE:")
+        batch_x, batch_vel, batch_pos, batch_goal, batch_grid, batch_ped_grid, batch_y, batch_pos_target, other_agents_pos, new_epoch = data_prep.getBatch()
+        print(batch_x[0, 0, 0])
+        print()
+        print(batch_vel[0, 0, 0])
+        print()
+        print(batch_pos[0, 0, 0])
+        print("\n\n")
 
-        start_time_training = time.time()
+        for step in range(initial_step, args.total_training_steps):
+            start_time_loop = time.time()
 
-        model_output = model.train_step(sess, feed_dict_train, step)
+            # Get Next Batch of Data
+            if res == None:
+                batch_x, batch_vel, batch_pos, batch_goal, batch_grid, batch_ped_grid, batch_y, batch_pos_target, other_agents_pos, new_epoch = data_prep.getBatch()
+            else:
+                batch = res.get(timeout=5)
 
-        avg_training_time = time.time() - start_time_training
-        avg_loop_time = time.time() - start_time_loop
+            # Create dictionary to feed into the model
+            dict = {"batch_x": batch_x,
+                    "batch_vel": batch_vel,
+                    "batch_pos": batch_pos,
+                    "batch_goal": batch_goal,
+                    "batch_grid": batch_grid,
+                    "batch_ped_grid": batch_ped_grid,
+                    "step": step,
+                    "batch_y": batch_y,
+                    "batch_pos_target": batch_pos_target,
+                    "batch_div": batch_y,
+                    "other_agents_pos": other_agents_pos
+                    }
 
-        training_loss.append(model_output["batch_loss"])
+            feed_dict_train = model.feed_dic(**dict)
 
-        if step == 1:
-            avg_training_loss *= model_output["batch_loss"]
-        else:
-            avg_training_loss = np.roll(avg_training_loss, shift=1)
-            avg_training_loss[0] = model_output["batch_loss"]
+            # res = pool.apply_async(data_prep.getBatch)
 
-        # Print training info
-        if step % args.print_freq == 0:
+            epoch += new_epoch
 
-            # Get batch to compute validation loss
-            validation_dict = data_prep.getTestBatch()
+            # Initialize the new sequences with a hidden state of zeros, the continuing sequences get assigned the previous hidden state
+            model.reset_cells(data_prep.sequence_reset)
 
-            model.reset_test_cells(data_prep.val_sequence_reset)
+            start_time_training = time.time()
 
-            feed_dict_validation = model.feed_val_dic(**validation_dict)
+            model_output = model.train_step(sess, feed_dict_train, step)
 
-            validation_loss, validation_summary, validation_predictions = model.validation_step(sess, feed_dict_train)
+            avg_training_time = time.time() - start_time_training
+            avg_loop_time = time.time() - start_time_loop
 
-            ellapsed_time = time.time() - start_time
+            training_loss.append(model_output["batch_loss"])
 
-            print(
-                Fore.BLUE + "\n\nEpoch {:d}, Steps: {:d}, Train loss: {:01.2f}, Validation loss: {:01.2f}, Epoch time: {:01.2f} sec"
-                .format(epoch + 1, step, np.mean(avg_training_loss), validation_loss, ellapsed_time) + Style.RESET_ALL)
+            if step == 1:
+                avg_training_loss *= model_output["batch_loss"]
+            else:
+                avg_training_loss = np.roll(avg_training_loss, shift=1)
+                avg_training_loss[0] = model_output["batch_loss"]
 
-            if args.tensorboard_logging:
-                model.summary_writer.add_summary(model_output["summary"], step)
-                model.summary_writer.flush()
-                model.validation_summary_writer.add_summary(validation_summary, step)
-                model.validation_summary_writer.flush()
+            # Print training info
+            if step % args.print_freq == 0:
 
-            # Plot Global and Local Scenarios to validate datasets
-            if args.debug_plotting:
-                for seq_index in range(args.batch_size):
-                    for t in range(args.truncated_backprop_length):
-                        data_prep.plot_global_scenario(batch_grid, batch_x, batch_y, batch_goal, other_agents_pos,
-                                                       model_output["model_predictions"], t, seq_index)
-                        data_prep.plot_local_scenario(batch_grid, batch_x, batch_y, batch_goal, other_agents_pos,
-                                                      model_output["model_predictions"], t, seq_index)
+                # Get batch to compute validation loss
+                validation_dict = data_prep.getTestBatch()
 
-            with open(args.model_path + "/tf_log", 'a') as f:
-                f.write(str(step) + '\n')
-            curr_loss = (validation_loss + np.mean(avg_training_loss)) / 2.0
-            if curr_loss < best_loss:
-                save_path = args.model_path + '/model_ckpt'
-                model.full_saver.save(sess, save_path, global_step=step)
-                best_loss = curr_loss
-                print(Fore.LIGHTCYAN_EX + 'Step {}: Saving model under {}'.format(step, save_path))
+                model.reset_test_cells(data_prep.val_sequence_reset)
 
-        step = step + 1
+                feed_dict_validation = model.feed_val_dic(**validation_dict)
 
-    write_summary(training_loss[-1], args)
-    full_path = args.model_path + '/final-model.ckpt'
-    # model.full_saver.save(sess, full_path)
-    print('Saved final model under "{}"'.format(full_path))
+                validation_loss, validation_summary, validation_predictions = model.validation_step(sess,
+                                                                                                    feed_dict_train)
 
-    if args.tensorboard_logging:
-        model.summary_writer.close()
+                ellapsed_time = time.time() - start_time
 
-sess.close()
+                print(
+                    Fore.BLUE +
+                    "\n\nEpoch {:d}, Steps: {:d}, Train loss: {:01.2f}, Validation loss: {:01.2f}, Epoch time: {:01.2f} sec"
+                    .format(epoch + 1, step, np.mean(avg_training_loss), validation_loss,
+                            ellapsed_time) + Style.RESET_ALL)
+
+                if args.tensorboard_logging:
+                    model.summary_writer.add_summary(model_output["summary"], step)
+                    model.summary_writer.flush()
+                    model.validation_summary_writer.add_summary(validation_summary, step)
+                    model.validation_summary_writer.flush()
+
+                # Plot Global and Local Scenarios to validate datasets
+                if args.debug_plotting:
+                    for seq_index in range(args.batch_size):
+                        for t in range(args.truncated_backprop_length):
+                            data_prep.plot_global_scenario(batch_grid, batch_x, batch_y, batch_goal, other_agents_pos,
+                                                           model_output["model_predictions"], t, seq_index)
+                            data_prep.plot_local_scenario(batch_grid, batch_x, batch_y, batch_goal, other_agents_pos,
+                                                          model_output["model_predictions"], t, seq_index)
+
+                with open(args.model_path + "/tf_log", 'a') as f:
+                    f.write(str(step) + '\n')
+                curr_loss = (validation_loss + np.mean(avg_training_loss)) / 2.0
+                if curr_loss < best_loss:
+                    save_path = args.model_path + '/model_ckpt'
+                    model.full_saver.save(sess, save_path, global_step=step)
+                    best_loss = curr_loss
+                    print(Fore.LIGHTCYAN_EX + 'Step {}: Saving model under {}'.format(step, save_path))
+
+            step = step + 1
+
+        write_summary(training_loss[-1], args)
+        full_path = args.model_path + '/final-model.ckpt'
+        # model.full_saver.save(sess, full_path)
+        print('Saved final model under "{}"'.format(full_path))
+
+        if args.tensorboard_logging:
+            model.summary_writer.close()
+
+    sess.close()
