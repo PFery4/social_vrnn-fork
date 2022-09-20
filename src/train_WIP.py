@@ -23,7 +23,7 @@ def parse_args():
 
     data_path = '../data/'
     scenario = 'real_world/ewap_dataset/seq_hotel'
-    exp_num = 123456789
+    exp_num = 444001
 
     # Hyperparameters
     n_epochs = 2
@@ -35,8 +35,10 @@ def parse_args():
     prediction_horizon = 12
     prev_horizon = 7
 
-    #
+    # Query Agent input processing
+    qa_module = "LSTM"      # can be either "LSTM" or TODO: add "AE" and "VAE" to the options once they are implemented.
     rnn_state_size = 32
+
     rnn_state_size_lstm_grid = 256
     rnn_state_size_lstm_ped = 128
     rnn_state_ped_size = 16
@@ -242,6 +244,10 @@ def parse_args():
                         default=train_set)
     parser.add_argument('--tensorboard_logging', help='Whether to use tensorboard logging capability or not', type=bool,
                         default=tensorboard_logging)
+
+    # My added options
+    parser.add_argument('--qa_module', help='Which module to use for processing of the Query Agent past trajectory input. Can either be "LSTM", ', type=str,
+                        default=qa_module) #TODO: add "AE" or "VAE" options once they are implemented.
 
     parsed_args = parser.parse_args()
 

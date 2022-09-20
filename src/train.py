@@ -25,18 +25,19 @@ def parse_args():
     pretrained_convnet_path = "../trained_models/autoencoder_with_ped"
 
     data_path = '../data/'
-    scenario = 'GA3C-CADRL-10-py27'
-    exp_num = 6
+#    scenario = 'GA3C-CADRL-10-py27'
+    scenario = 'real_world/ewap_dataset/seq_hotel'
+    exp_num = 444000
 
     # Hyperparameters
     n_epochs = 2
-    batch_size = 128
+    batch_size = 16
     regularization_weight = 0.0001
 
     # Time parameters
-    truncated_backprop_length = 10
-    prediction_horizon = 10
-    prev_horizon = 0
+    truncated_backprop_length = 3
+    prediction_horizon = 12
+    prev_horizon = 7
 
     rnn_state_size = 32
     rnn_state_size_lstm_grid = 256
@@ -71,7 +72,7 @@ def parse_args():
     print_freq = 200
     save_freq = 500
     total_training_steps = 20000
-    dt = 0.1
+    dt = 0.4
 
     warmstart_model = False
     pretrained_convnet = False
@@ -261,193 +262,197 @@ def summarise_args(parsed_args):
         print(Fore.YELLOW + f"{str(key).ljust(30)}:\t{val}" + Style.RESET_ALL)
     return None
 
+## MAIN FUNCTION
 
-args = parse_args()
-
-summarise_args(args)
-
-# Enable / Disable GPU
-if not args.gpu:
-    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-# Create Log and Model Directory to save training model
-args.model_path = '../trained_models/' + args.model_name + "/" + str(args.exp_num)
-args.log_dir = args.model_path + '/log'
-if not os.path.exists(args.log_dir):
-    print(Fore.GREEN + f"creating log directory in: {args.log_dir}" + Style.RESET_ALL)
-    os.makedirs(args.log_dir)
-args.dataset = '/' + args.scenario + '.pkl'
-model_parameters = {"args": args}
-
-# Check whether model folder exists, otherwise make directory
-if not os.path.exists(args.model_path):
-    print(Fore.GREEN + f"creating model folder in: {args.model_path}" + Style.RESET_ALL)
-    os.makedirs(args.model_path)
-
-# Save Model Parameters
-param_file = open(args.model_path + '/model_parameters.pkl', 'wb')
-pkl.dump(model_parameters, param_file, protocol=2)  # encoding='latin1'
-param_file.close()
-with open(args.model_path + '/model_parameters.json', 'w') as f:
-    json.dump(args.__dict__, f)
-
-# Create Datahandler class
-data_prep = dhlstm.DataHandlerLSTM(args)
-# Only used to create a map from png
-# Make sure this parameters are correct otherwise it will fail training and plotting the results
-map_args = {"file_name": 'map.png',
-            "resolution": 0.1,
-            "map_size": np.array([30., 6.]), }
-# Load dataset
-data_prep.processData(**map_args)
-
-# Import Deep Learning model
-module = importlib.import_module("src.models." + args.model_name)
-globals().update(module.__dict__)
-
-# Create Model Graph
-model = NetworkModel(args)
-
-# # see the trainable variables
-# print(f"tf.trainable_variables() = {tf.trainable_variables()}")
-# for var in tf.trainable_variables():
-#     print(var)
+if __name__ == '__main__':
 
 
-config = tf.ConfigProto()
+    args = parse_args()
 
-# Start Training Session
-with tf.Session(config=config) as sess:
-    # Load a pre-trained model
-    if args.warmstart_model:
-        model.warmstart_model(args, sess)
-    else:
-        # Initialize all TF variables
-        sess.run(tf.global_variables_initializer())
+    summarise_args(args)
 
-    # Load Convnet Model
-    try:
-        if args.warm_start_convnet:
-            model.warmstart_convnet(args, sess)
-    except:
-        print("Failed to initialized Convnet or Convnet does not exist")
+    # Enable / Disable GPU
+    if not args.gpu:
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-    # if the training was interrupted load last training step index
-    try:
-        initial_step = int(open(args.model_path + "/tf_log", 'r').read().split('\n')[-2]) + 1
-    except:
-        initial_step = 1
+    # Create Log and Model Directory to save training model
+    args.model_path = '../trained_models/' + args.model_name + "/" + str(args.exp_num)
+    args.log_dir = args.model_path + '/log'
+    if not os.path.exists(args.log_dir):
+        print(Fore.GREEN + f"creating log directory in: {args.log_dir}" + Style.RESET_ALL)
+        os.makedirs(args.log_dir)
+    args.dataset = '/' + args.scenario + '.pkl'
+    model_parameters = {"args": args}
 
-    epoch = 0
-    training_loss = []
-    diversity_loss = []
-    training_loss.append(0)
+    # Check whether model folder exists, otherwise make directory
+    if not os.path.exists(args.model_path):
+        print(Fore.GREEN + f"creating model folder in: {args.model_path}" + Style.RESET_ALL)
+        os.makedirs(args.model_path)
 
-    # Set up multithreading for data handler
-    pool = ThreadPool(1)
-    res = None
-    _model_prediction = []
-    start_time = time.time()
-    best_loss = float('inf')
-    avg_training_loss = np.ones(100)
+    # Save Model Parameters
+    param_file = open(args.model_path + '/model_parameters.pkl', 'wb')
+    pkl.dump(model_parameters, param_file, protocol=2)  # encoding='latin1'
+    param_file.close()
+    with open(args.model_path + '/model_parameters.json', 'w') as f:
+        json.dump(args.__dict__, f)
 
-    for step in range(initial_step, args.total_training_steps):
-        start_time_loop = time.time()
+    # Create Datahandler class
+    data_prep = dhlstm.DataHandlerLSTM(args)
+    # Only used to create a map from png
+    # Make sure this parameters are correct otherwise it will fail training and plotting the results
+    map_args = {"file_name": 'map.png',
+                "resolution": 0.1,
+                "map_size": np.array([30., 6.]), }
+    # Load dataset
+    data_prep.processData(**map_args)
 
-        # Get Next Batch of Data
-        if res == None:
-            batch_x, batch_vel, batch_pos, batch_goal, batch_grid, batch_ped_grid, batch_y, batch_pos_target, other_agents_pos, new_epoch = data_prep.getBatch()
+    # Import Deep Learning model
+    module = importlib.import_module("src.models." + args.model_name)
+    globals().update(module.__dict__)
+
+    # Create Model Graph
+    model = NetworkModel(args)
+
+    # # see the trainable variables
+    # print(f"tf.trainable_variables() = {tf.trainable_variables()}")
+    # for var in tf.trainable_variables():
+    #     print(var)
+
+
+    config = tf.ConfigProto()
+
+    # Start Training Session
+    with tf.Session(config=config) as sess:
+        # Load a pre-trained model
+        if args.warmstart_model:
+            model.warmstart_model(args, sess)
         else:
-            batch = res.get(timeout=5)
+            # Initialize all TF variables
+            sess.run(tf.global_variables_initializer())
 
-        # Create dictionary to feed into the model
-        dict = {"batch_x": batch_x,
-                "batch_vel": batch_vel,
-                "batch_pos": batch_pos,
-                "batch_goal": batch_goal,
-                "batch_grid": batch_grid,
-                "batch_ped_grid": batch_ped_grid,
-                "step": step,
-                "batch_y": batch_y,
-                "batch_pos_target": batch_pos_target,
-                "batch_div": batch_y,
-                "other_agents_pos": other_agents_pos
-                }
+        # Load Convnet Model
+        try:
+            if args.warm_start_convnet:
+                model.warmstart_convnet(args, sess)
+        except:
+            print("Failed to initialized Convnet or Convnet does not exist")
 
-        feed_dict_train = model.feed_dic(**dict)
+        # if the training was interrupted load last training step index
+        try:
+            initial_step = int(open(args.model_path + "/tf_log", 'r').read().split('\n')[-2]) + 1
+        except:
+            initial_step = 1
 
-        # res = pool.apply_async(data_prep.getBatch)
+        epoch = 0
+        training_loss = []
+        diversity_loss = []
+        training_loss.append(0)
 
-        epoch += new_epoch
+        # Set up multithreading for data handler
+        pool = ThreadPool(1)
+        res = None
+        _model_prediction = []
+        start_time = time.time()
+        best_loss = float('inf')
+        avg_training_loss = np.ones(100)
 
-        # Initialize the new sequences with a hidden state of zeros, the continuing sequences get assigned the previous hidden state
-        model.reset_cells(data_prep.sequence_reset)
+        for step in range(initial_step, args.total_training_steps):
+            start_time_loop = time.time()
 
-        start_time_training = time.time()
+            # Get Next Batch of Data
+            if res == None:
+                batch_x, batch_vel, batch_pos, batch_goal, batch_grid, batch_ped_grid, batch_y, batch_pos_target, other_agents_pos, new_epoch = data_prep.getBatch()
+            else:
+                batch = res.get(timeout=5)
 
-        model_output = model.train_step(sess, feed_dict_train, step)
+            # Create dictionary to feed into the model
+            dict = {"batch_x": batch_x,
+                    "batch_vel": batch_vel,
+                    "batch_pos": batch_pos,
+                    "batch_goal": batch_goal,
+                    "batch_grid": batch_grid,
+                    "batch_ped_grid": batch_ped_grid,
+                    "step": step,
+                    "batch_y": batch_y,
+                    "batch_pos_target": batch_pos_target,
+                    "batch_div": batch_y,
+                    "other_agents_pos": other_agents_pos
+                    }
 
-        avg_training_time = time.time() - start_time_training
-        avg_loop_time = time.time() - start_time_loop
+            feed_dict_train = model.feed_dic(**dict)
 
-        training_loss.append(model_output["batch_loss"])
+            # res = pool.apply_async(data_prep.getBatch)
 
-        if step == 1:
-            avg_training_loss *= model_output["batch_loss"]
-        else:
-            avg_training_loss = np.roll(avg_training_loss, shift=1)
-            avg_training_loss[0] = model_output["batch_loss"]
+            epoch += new_epoch
 
-        # Print training info
-        if step % args.print_freq == 0:
+            # Initialize the new sequences with a hidden state of zeros, the continuing sequences get assigned the previous hidden state
+            model.reset_cells(data_prep.sequence_reset)
 
-            # Get batch to compute validation loss
-            validation_dict = data_prep.getTestBatch()
+            start_time_training = time.time()
 
-            model.reset_test_cells(data_prep.val_sequence_reset)
+            model_output = model.train_step(sess, feed_dict_train, step)
 
-            feed_dict_validation = model.feed_val_dic(**validation_dict)
+            avg_training_time = time.time() - start_time_training
+            avg_loop_time = time.time() - start_time_loop
 
-            validation_loss, validation_summary, validation_predictions = model.validation_step(sess, feed_dict_train)
+            training_loss.append(model_output["batch_loss"])
 
-            ellapsed_time = time.time() - start_time
+            if step == 1:
+                avg_training_loss *= model_output["batch_loss"]
+            else:
+                avg_training_loss = np.roll(avg_training_loss, shift=1)
+                avg_training_loss[0] = model_output["batch_loss"]
 
-            print(
-                Fore.BLUE + "\n\nEpoch {:d}, Steps: {:d}, Train loss: {:01.2f}, Validation loss: {:01.2f}, Epoch time: {:01.2f} sec"
-                .format(epoch + 1, step, np.mean(avg_training_loss), validation_loss, ellapsed_time) + Style.RESET_ALL)
+            # Print training info
+            if step % args.print_freq == 0:
 
-            if args.tensorboard_logging:
-                model.summary_writer.add_summary(model_output["summary"], step)
-                model.summary_writer.flush()
-                model.validation_summary_writer.add_summary(validation_summary, step)
-                model.validation_summary_writer.flush()
+                # Get batch to compute validation loss
+                validation_dict = data_prep.getTestBatch()
 
-            # Plot Global and Local Scenarios to validate datasets
-            if args.debug_plotting:
-                for seq_index in range(args.batch_size):
-                    for t in range(args.truncated_backprop_length):
-                        data_prep.plot_global_scenario(batch_grid, batch_x, batch_y, batch_goal, other_agents_pos,
-                                                       model_output["model_predictions"], t, seq_index)
-                        data_prep.plot_local_scenario(batch_grid, batch_x, batch_y, batch_goal, other_agents_pos,
-                                                      model_output["model_predictions"], t, seq_index)
+                model.reset_test_cells(data_prep.val_sequence_reset)
 
-            with open(args.model_path + "/tf_log", 'a') as f:
-                f.write(str(step) + '\n')
-            curr_loss = (validation_loss + np.mean(avg_training_loss)) / 2.0
-            if curr_loss < best_loss:
-                save_path = args.model_path + '/model_ckpt'
-                model.full_saver.save(sess, save_path, global_step=step)
-                best_loss = curr_loss
-                print(Fore.LIGHTCYAN_EX + 'Step {}: Saving model under {}'.format(step, save_path))
+                feed_dict_validation = model.feed_val_dic(**validation_dict)
 
-        step = step + 1
+                validation_loss, validation_summary, validation_predictions = model.validation_step(sess, feed_dict_train)
 
-    write_summary(training_loss[-1], args)
-    full_path = args.model_path + '/final-model.ckpt'
-    # model.full_saver.save(sess, full_path)
-    print('Saved final model under "{}"'.format(full_path))
+                ellapsed_time = time.time() - start_time
 
-    if args.tensorboard_logging:
-        model.summary_writer.close()
+                print(
+                    Fore.BLUE + "\n\nEpoch {:d}, Steps: {:d}, Train loss: {:01.2f}, Validation loss: {:01.2f}, Epoch time: {:01.2f} sec"
+                    .format(epoch + 1, step, np.mean(avg_training_loss), validation_loss, ellapsed_time) + Style.RESET_ALL)
 
-sess.close()
+                if args.tensorboard_logging:
+                    model.summary_writer.add_summary(model_output["summary"], step)
+                    model.summary_writer.flush()
+                    model.validation_summary_writer.add_summary(validation_summary, step)
+                    model.validation_summary_writer.flush()
+
+                # Plot Global and Local Scenarios to validate datasets
+                if args.debug_plotting:
+                    for seq_index in range(args.batch_size):
+                        for t in range(args.truncated_backprop_length):
+                            data_prep.plot_global_scenario(batch_grid, batch_x, batch_y, batch_goal, other_agents_pos,
+                                                           model_output["model_predictions"], t, seq_index)
+                            data_prep.plot_local_scenario(batch_grid, batch_x, batch_y, batch_goal, other_agents_pos,
+                                                          model_output["model_predictions"], t, seq_index)
+
+                with open(args.model_path + "/tf_log", 'a') as f:
+                    f.write(str(step) + '\n')
+                curr_loss = (validation_loss + np.mean(avg_training_loss)) / 2.0
+                if curr_loss < best_loss:
+                    save_path = args.model_path + '/model_ckpt'
+                    model.full_saver.save(sess, save_path, global_step=step)
+                    best_loss = curr_loss
+                    print(Fore.LIGHTCYAN_EX + 'Step {}: Saving model under {}'.format(step, save_path))
+
+            step = step + 1
+
+        write_summary(training_loss[-1], args)
+        full_path = args.model_path + '/final-model.ckpt'
+        # model.full_saver.save(sess, full_path)
+        print('Saved final model under "{}"'.format(full_path))
+
+        if args.tensorboard_logging:
+            model.summary_writer.close()
+
+    sess.close()

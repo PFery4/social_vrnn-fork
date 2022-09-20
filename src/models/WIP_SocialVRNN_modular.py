@@ -1,16 +1,63 @@
+import argparse
+import tensorflow as tf
 from tensorflow_probability import distributions as tfd
 import sys
 from src.cells.vrnn_cell import VariationalRNNCell as vrnn_cell
-from src.models.tf_utils import *
-from src.data_utils import Support as sup
+from src.models.tf_utils import linear
+from src.data_utils import Support as Sup
 import numpy as np
 import os
 from colorama import Fore, Style
 
 
-class NetworkModel():
+class InputFeatureLSTM:
 
-    def __init__(self, args, is_training=True, batch_size=None):
+    def __init__(self, args: argparse.Namespace, rnn_state_size: int, scope_name: str, name: str,
+                 inputs_series: [tf.Tensor], batch_size: int = None):
+        """
+        LSTM block. Used for processing of the past trajectory and the static obstacle grid features.
+        """
+        self.args = args
+        self.rnn_state_size = rnn_state_size
+        self.batch_size = batch_size
+        self.inputs_series = inputs_series
+        self.scope_name = scope_name
+        self.name = name
+
+        #TODO implement input placeholders in this class rather than keeping them in the model class.
+
+        # Initialize hidden states with zeros
+        # Cells with a "test" in their name are used for testing
+        # they will simply copy the values from their sister cells
+        self.cell_state_current = np.zeros([self.args.batch_size, self.rnn_state_size])
+        self.hidden_state_current = np.zeros([self.args.batch_size, self.rnn_state_size])
+        self.test_cell_state_current = np.zeros([self.args.batch_size, self.rnn_state_size])
+        self.test_hidden_state_current = np.zeros([self.args.batch_size, self.rnn_state_size])
+        self.cell_state = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.rnn_state_size],
+                                         name=f'cell_state_{self.name}')  # internal state of the cell (before output gate)
+        self.hidden_state = tf.placeholder(dtype=tf.float32, shape=[None, self.rnn_state_size],
+                                           name=f'hidden_state_{self.name}')  # output of the cell (after output gate)
+        self.init_state_tuple = tf.contrib.rnn.LSTMStateTuple(self.cell_state, self.hidden_state)
+
+        with tf.variable_scope(self.scope_name) as scope:
+            self.cell = tf.nn.rnn_cell.LSTMCell(self.rnn_state_size, name='basic_lstm_cell', trainable=True)
+            self.cell_outputs_series_state, self.current_state = tf.contrib.rnn.static_rnn(self.cell,
+                                                                                           inputs_series,
+                                                                                           dtype=tf.float32,
+                                                                                           initial_state=self.init_state_tuple)
+
+    def feed_dic(self):
+        return {self.cell_state: self.cell_state_current,
+                self.hidden_state: self.hidden_state_current}
+
+    def update_test_states(self):
+        self.test_cell_state_current = self.cell_state_current.copy()
+        self.test_hidden_state_current = self.hidden_state_current.copy()
+
+
+class NetworkModel:
+
+    def __init__(self, args: argparse.Namespace, is_training=True, batch_size=None):
         """
         The NetworkModel() class provides an implementation of the Social-VRNN architecture.
         """
@@ -37,10 +84,7 @@ class NetworkModel():
         self.rnn_state_size_lstm_concat = self.args.rnn_state_size_lstm_concat  # int: dimension
         self.fc_hidden_unit_size = self.args.fc_hidden_unit_size  # int: dimension
         self.prior_hidden_size = self.rnn_state_size + self.rnn_state_size_lstm_grid + self.rnn_state_size_lstm_ped  # int: dimension
-        # try:      # < ---REMOVE THIS TRY STATEMENT LATER IF IT TURNS OUT THAT sigma_bias IS FINE
         self.sigma_bias = self.args.sigma_bias  # ???
-        # except:
-        #     self.sigma_bias = 0.0
 
         # Training parameters
         self.lambda_ = args.regularization_weight  # float: regularization weight
@@ -63,6 +107,7 @@ class NetworkModel():
                                                          shape=[self.batch_size, self.truncated_backprop_length,
                                                                 self.pedestrian_vector_dim * self.args.n_other_agents],
                                                          name='ped_grid')       # placeholder for the other agents
+
         self.output_placeholder = tf.placeholder(dtype=tf.float32,
                                                  shape=[self.batch_size, self.truncated_backprop_length,
                                                         self.output_placeholder_dim], name='output')
@@ -70,63 +115,8 @@ class NetworkModel():
                                                     shape=[self.batch_size, self.truncated_backprop_length,
                                                            self.output_placeholder_dim], name='output')
         self.dropout_placeholder = tf.placeholder(dtype=tf.float32, name='dropout')
-        self.step = tf.placeholder(dtype=tf.float32,
-                                   shape=[], name='global_step')
+        self.step = tf.placeholder(dtype=tf.float32, shape=[], name='global_step')
         self.seq_length = tf.placeholder(tf.int32, [None])
-        # Initialize hidden states with zeros
-        self.cell_state_current = np.zeros([args.batch_size, args.rnn_state_size])
-        self.hidden_state_current = np.zeros([args.batch_size, args.rnn_state_size])
-        self.cell_state_current_lstm_grid = np.zeros([args.batch_size, args.rnn_state_size_lstm_grid])
-        self.hidden_state_current_lstm_grid = np.zeros([args.batch_size, args.rnn_state_size_lstm_grid])
-        self.cell_state_current_lstm_ped = np.zeros([args.batch_size, args.rnn_state_size_lstm_ped])
-        self.hidden_state_current_lstm_ped = np.zeros([args.batch_size, args.rnn_state_size_lstm_ped])
-        self.cell_state_current_lstm_concat = np.zeros([args.batch_size, self.rnn_state_size_lstm_concat])
-        self.hidden_state_current_lstm_concat = np.zeros([args.batch_size, self.rnn_state_size_lstm_concat])
-
-        # Cells used for testing
-        # Initialize hidden states with zeros
-        self.test_cell_state_current = np.zeros([args.batch_size, args.rnn_state_size])
-        self.test_hidden_state_current = np.zeros([args.batch_size, args.rnn_state_size])
-        self.test_cell_state_current_lstm_grid = np.zeros([args.batch_size, args.rnn_state_size_lstm_grid])
-        self.test_hidden_state_current_lstm_grid = np.zeros([args.batch_size, args.rnn_state_size_lstm_grid])
-        self.test_cell_state_current_lstm_ped = np.zeros([args.batch_size, args.rnn_state_size_lstm_ped])
-        self.test_hidden_state_current_lstm_ped = np.zeros([args.batch_size, args.rnn_state_size_lstm_ped])
-        self.test_cell_state_current_lstm_concat = np.zeros([args.batch_size, self.rnn_state_size_lstm_concat])
-        self.test_hidden_state_current_lstm_concat = np.zeros([args.batch_size, self.rnn_state_size_lstm_concat])
-
-        # Pedestrian state LSTM
-        self.cell_state = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.rnn_state_size],
-                                         name='cell_state')  # internal state of the cell (before output gate)
-        self.hidden_state = tf.placeholder(dtype=tf.float32, shape=[None, self.rnn_state_size],
-                                           name='hidden_state')  # output of the cell (after output gate)
-        self.init_state_tuple = tf.contrib.rnn.LSTMStateTuple(self.cell_state, self.hidden_state)
-
-        # Static occupancy grid LSTM
-        self.cell_state_lstm_grid = tf.placeholder(dtype=tf.float32,
-                                                   shape=[self.batch_size, self.rnn_state_size_lstm_grid],
-                                                   name='cell_state_lstm_grid')  # internal state of the cell (before output gate)
-        self.hidden_state_lstm_grid = tf.placeholder(dtype=tf.float32, shape=[None, self.rnn_state_size_lstm_grid],
-                                                     name='hidden_state_lstm_grid')  # output of the cell (after output gate)
-        self.init_state_tuple_lstm_grid = tf.contrib.rnn.LSTMStateTuple(self.cell_state_lstm_grid,
-                                                                        self.hidden_state_lstm_grid)
-
-        # Pedestrian LSTM
-        self.cell_state_lstm_ped = tf.placeholder(dtype=tf.float32,
-                                                  shape=[self.batch_size, self.rnn_state_size_lstm_ped],
-                                                  name='cell_state_lstm_ped')  # internal state of the cell (before output gate)
-        self.hidden_state_lstm_ped = tf.placeholder(dtype=tf.float32, shape=[None, self.rnn_state_size_lstm_ped],
-                                                    name='hidden_state_lstm_ped')  # output of the cell (after output gate)
-        self.init_state_tuple_lstm_ped = tf.contrib.rnn.LSTMStateTuple(self.cell_state_lstm_ped,
-                                                                       self.hidden_state_lstm_ped)
-
-        # Concatenation LSTM (state, grid, pedestrians)
-        self.cell_state_lstm_concat = tf.placeholder(dtype=tf.float32,
-                                                     shape=[self.batch_size, self.rnn_state_size_lstm_concat],
-                                                     name='cell_state_lstm_concat')  # internal state of the cell (before output gate)
-        self.hidden_state_lstm_concat = tf.placeholder(dtype=tf.float32, shape=[None, self.rnn_state_size_lstm_concat],
-                                                       name='hidden_state_lstm_concat')  # output of the cell (after output gate)
-        self.init_state_tuple_lstm_concat = tf.contrib.rnn.LSTMStateTuple(self.cell_state_lstm_concat,
-                                                                          self.hidden_state_lstm_concat)
 
         inputs_series = tf.unstack(self.input_state_placeholder, axis=1)
         outputs_series = tf.unstack(self.output_placeholder, axis=1)
@@ -144,10 +134,52 @@ class NetworkModel():
         for output in self.process_grid(self.occ_grid_series):
             conv_grid_feature_series.append(tf.stop_gradient(output))
 
+        # Pedestrian state LSTM
+        self.qa_lstm = InputFeatureLSTM(args=self.args,
+                                        rnn_state_size=self.rnn_state_size,
+                                        scope_name="encoder_model/lstm_state",
+                                        name="query_agent",
+                                        inputs_series=inputs_series,
+                                        batch_size=self.batch_size)
+
+        # Static occupancy grid LSTM
+        self.grid_lstm = InputFeatureLSTM(args=self.args,
+                                          rnn_state_size=self.rnn_state_size_lstm_grid,
+                                          scope_name="encoder_model/lstm_grid",
+                                          name="grid",
+                                          inputs_series=conv_grid_feature_series,
+                                          batch_size=self.batch_size)
+
+        # Pedestrian LSTM
+        self.cell_state_current_lstm_ped = np.zeros([self.args.batch_size, self.rnn_state_size_lstm_ped])
+        self.hidden_state_current_lstm_ped = np.zeros([self.args.batch_size, self.rnn_state_size_lstm_ped])
+        self.test_cell_state_current_lstm_ped = np.zeros([self.args.batch_size, self.rnn_state_size_lstm_ped])
+        self.test_hidden_state_current_lstm_ped = np.zeros([self.args.batch_size, self.rnn_state_size_lstm_ped])
+        self.cell_state_lstm_ped = tf.placeholder(dtype=tf.float32,
+                                                  shape=[self.batch_size, self.rnn_state_size_lstm_ped],
+                                                  name='cell_state_lstm_ped')  # internal state of the cell (before output gate)
+        self.hidden_state_lstm_ped = tf.placeholder(dtype=tf.float32, shape=[None, self.rnn_state_size_lstm_ped],
+                                                    name='hidden_state_lstm_ped')  # output of the cell (after output gate)
+        self.init_state_tuple_lstm_ped = tf.contrib.rnn.LSTMStateTuple(self.cell_state_lstm_ped,
+                                                                       self.hidden_state_lstm_ped)
+
+        # Concatenation LSTM (state, grid, pedestrians)
+        self.cell_state_current_lstm_concat = np.zeros([self.args.batch_size, self.rnn_state_size_lstm_concat])
+        self.hidden_state_current_lstm_concat = np.zeros([self.args.batch_size, self.rnn_state_size_lstm_concat])
+        self.test_cell_state_current_lstm_concat = np.zeros([self.args.batch_size, self.rnn_state_size_lstm_concat])
+        self.test_hidden_state_current_lstm_concat = np.zeros([self.args.batch_size, self.rnn_state_size_lstm_concat])
+        self.cell_state_lstm_concat = tf.placeholder(dtype=tf.float32,
+                                                     shape=[self.batch_size, self.rnn_state_size_lstm_concat],
+                                                     name='cell_state_lstm_concat')  # internal state of the cell (before output gate)
+        self.hidden_state_lstm_concat = tf.placeholder(dtype=tf.float32, shape=[None, self.rnn_state_size_lstm_concat],
+                                                       name='hidden_state_lstm_concat')  # output of the cell (after output gate)
+        self.init_state_tuple_lstm_concat = tf.contrib.rnn.LSTMStateTuple(self.cell_state_lstm_concat,
+                                                                          self.hidden_state_lstm_concat)
+
         # Set up model with variables
         with tf.variable_scope("model") as scope:
 
-            train_encoder = self.args.end_to_end		# whether to train the encoder
+            # train_encoder = self.args.end_to_end		# whether to train the encoder ???? This line seems to be used nowhere in the code # TODO: Remove this line if not useful
 
             with tf.variable_scope('encoder_model') as scope:
                 # Pedestrian grid embedding layer
@@ -158,15 +190,15 @@ class NetworkModel():
                 self.b_pedestrian_grid = self.get_bias_variable(name='b_ped_grid', shape=[1, ped_grid_out_dim],
                                                                 trainable=True)
 
-                # LSTM cells to process static occupancy grid
-                with tf.variable_scope('lstm_grid') as scope:
-                    self.cell_grid = tf.nn.rnn_cell.LSTMCell(self.rnn_state_size_lstm_grid, name='basic_lstm_cell',
-                                                             trainable=True)
-                    self.cell_outputs_series_lstm_grid, self.current_state_lstm_grid = tf.contrib.rnn.static_rnn(
-                        self.cell_grid,
-                        conv_grid_feature_series,
-                        dtype=tf.float32,
-                        initial_state=self.init_state_tuple_lstm_grid)
+                # # LSTM cells to process static occupancy grid
+                # with tf.variable_scope('lstm_grid') as scope:
+                #     self.cell_grid = tf.nn.rnn_cell.LSTMCell(self.rnn_state_size_lstm_grid, name='basic_lstm_cell',
+                #                                              trainable=True)
+                #     self.cell_outputs_series_lstm_grid, self.current_state_lstm_grid = tf.contrib.rnn.static_rnn(
+                #         self.cell_grid,
+                #         conv_grid_feature_series,
+                #         dtype=tf.float32,
+                #         initial_state=self.init_state_tuple_lstm_grid)
 
                 # Process pedestrian grid
                 ped_grid_series = tf.unstack(self.input_ped_grid_placeholder, axis=1)
@@ -181,26 +213,31 @@ class NetworkModel():
                                                                                              dtype=tf.float32,
                                                                                              sequence_length=self.seq_length,
                                                                                              initial_state=self.init_state_tuple_lstm_ped)
-
                     # Embedding layer of pedestrian grid
                     self.cell_outputs_series_lstm_ped = self.process_pedestrian_grid(
                         tf.unstack(ped_grid_feature_series, axis=1))
 
                 # LSTM cells to process pedestrian state
-                with tf.variable_scope('lstm_state') as scope:
-                    print(Fore.BLUE + "DOING SOMETHING HERE" + Style.RESET_ALL)
-                    print(len(inputs_series))
-                    print(inputs_series[0].shape)
-                    self.cell = tf.nn.rnn_cell.LSTMCell(self.rnn_state_size, name='basic_lstm_cell', trainable=True)
-                    self.cell_outputs_series_state, self.current_state = tf.contrib.rnn.static_rnn(self.cell,
-                                                                                                   inputs_series,
-                                                                                                   dtype=tf.float32,
-                                                                                                   initial_state=self.init_state_tuple)
+                # with tf.variable_scope('lstm_state') as scope:
+                #     print(Fore.BLUE + "DOING SOMETHING HERE" + Style.RESET_ALL)
+                #     print("inputs_series", inputs_series)
+                #     print(len(inputs_series))
+                #     print(inputs_series[0].shape)
+                #     self.cell = tf.nn.rnn_cell.LSTMCell(self.rnn_state_size, name='basic_lstm_cell', trainable=True)
+                #     self.cell_outputs_series_state, self.current_state = tf.contrib.rnn.static_rnn(self.cell,
+                #                                                                                    inputs_series,
+                #                                                                                    dtype=tf.float32,
+                #                                                                                    initial_state=self.init_state_tuple)
 
-                #### WIPCODE
-                with tf.variable_scope('autoencoder_state') as scope:
-                    pass
-                #### END OF WIPCODE
+                    # print()
+                    # print(Fore.BLUE + "DOING SOMETHING THERE" + Style.RESET_ALL)
+                    # print("self.cell_outputs_series_state", self.cell_outputs_series_state)
+                    # print()
+                    # print("DONE")
+
+                # TODO: adapt this code to work with the other types of modules
+                self.cell_outputs_series_state = self.qa_lstm.cell_outputs_series_state
+                self.cell_outputs_series_lstm_grid = self.grid_lstm.cell_outputs_series_state
 
                 # Concatenate the outputs of the three previous LSTMs and feed in first concatenated LSTM cell
                 concat_lstm = []
@@ -213,7 +250,6 @@ class NetworkModel():
 
                     # Concatenated LSTM layer
                     with tf.variable_scope('generation_model') as scope:
-
                         # cell_lstm_concat = tf.nn.rnn_cell.LSTMCell(self.rnn_state_size_lstm_concat, name='basic_lstm_cell')
                         cell_lstm_concat = vrnn_cell(args, args.rnn_state_size_lstm_concat, self.output_vec_dim,
                                                      args.prior_size,
@@ -349,12 +385,6 @@ class NetworkModel():
             self.optimizer = tf.train.RMSPropOptimizer(learning_rate=self.learning_rate)
             # Compute gradients
             train_vars = tf.trainable_variables()
-
-            ## WIPCODE
-            for var in train_vars:
-                print(Fore.CYAN + f"TRAINABLE VARIABLE OF SOCIAL_VRNN:\t{var}" + Style.RESET_ALL)
-            ## END OF WIPCODE
-
             self.gradients = tf.gradients(self.total_loss, train_vars)
 
             # Clip gradients
@@ -386,9 +416,14 @@ class NetworkModel():
             self.convnet_saver = tf.train.Saver(self.autoencoder_var_list)
             self.autoencoder_update = self.optimizer.minimize(self.autoencoder_loss, global_step=global_step)
 
+            # WIPCODE
+            for var in train_vars:
+                print(Fore.CYAN + f"TRAINABLE VARIABLE OF SOCIAL_VRNN:\t{var}" + Style.RESET_ALL)
+            # END OF WIPCODE
+
     def feed_dic(self, **kwargs):
         if self.args.rotated_grid:
-            batch_x, batch_y = sup.rotate_batch_to_local_frame(kwargs['batch_y'], kwargs['batch_x'])
+            batch_x, batch_y = Sup.rotate_batch_to_local_frame(kwargs['batch_y'], kwargs['batch_x'])
             batch_x = batch_x[:, :, 2:]
         else:
             batch_x = kwargs['batch_vel']
@@ -396,22 +431,27 @@ class NetworkModel():
         n_other_agents = np.zeros([self.args.batch_size])
         for i, other in enumerate(kwargs['other_agents_pos']):
             n_other_agents[i] = len(other)
-        return {self.input_state_placeholder: batch_x,
-                self.input_ped_grid_placeholder: kwargs["batch_ped_grid"],
-                self.input_grid_placeholder: kwargs["batch_grid"],
-                self.step: kwargs['step'],
-                self.seq_length: n_other_agents,
-                self.diversity_placeholder: kwargs['batch_div'],
-                self.output_placeholder: batch_y,
-                self.cell_state: self.cell_state_current,
-                self.hidden_state: self.hidden_state_current,
-                self.cell_state_lstm_grid: np.random.normal(self.cell_state_current_lstm_grid, 0),
-                self.hidden_state_lstm_grid: np.random.normal(self.hidden_state_current_lstm_grid, 0),
-                self.cell_state_lstm_ped: self.cell_state_current_lstm_ped,
-                self.hidden_state_lstm_ped: self.hidden_state_current_lstm_ped,
-                self.cell_state_lstm_concat: self.cell_state_current_lstm_concat,
-                self.hidden_state_lstm_concat: self.hidden_state_current_lstm_concat,
-                }
+
+        feed_dict = {self.input_state_placeholder: batch_x,
+                     self.input_ped_grid_placeholder: kwargs["batch_ped_grid"],
+                     self.input_grid_placeholder: kwargs["batch_grid"],
+                     self.step: kwargs['step'],
+                     self.seq_length: n_other_agents,
+                     self.diversity_placeholder: kwargs['batch_div'],
+                     self.output_placeholder: batch_y,
+                     # self.cell_state: self.cell_state_current,
+                     # self.hidden_state: self.hidden_state_current,
+                     # self.cell_state_lstm_grid: np.random.normal(self.cell_state_current_lstm_grid, 0),      # normal distribution with 0 stdev. --> why not just the self.cell[...] itself?
+                     # self.hidden_state_lstm_grid: np.random.normal(self.hidden_state_current_lstm_grid, 0),
+                     self.cell_state_lstm_ped: self.cell_state_current_lstm_ped,
+                     self.hidden_state_lstm_ped: self.hidden_state_current_lstm_ped,
+                     self.cell_state_lstm_concat: self.cell_state_current_lstm_concat,
+                     self.hidden_state_lstm_concat: self.hidden_state_current_lstm_concat}
+
+        # TODO: adapt this code to work with other modules
+        feed_dict.update(self.qa_lstm.feed_dic())
+        feed_dict.update(self.grid_lstm.feed_dic())
+        return feed_dict
 
     def feed_test_dic(self, **kwargs):
         step = kwargs["step"]
@@ -423,13 +463,22 @@ class NetworkModel():
                 self.input_grid_placeholder: np.expand_dims(kwargs["batch_grid"][:, step, :, :], axis=1),
                 self.step: 0,
                 self.seq_length: n_other_agents,
-                self.cell_state: np.random.normal(self.test_cell_state_current.copy(), np.abs(
-                    np.mean(np.mean(self.test_cell_state_current)) * kwargs["state_noise"])),
-                self.hidden_state: np.random.normal(self.test_hidden_state_current.copy(), np.abs(
-                    np.mean(np.mean(self.test_cell_state_current)) * kwargs["state_noise"])),
-                self.cell_state_lstm_grid: np.random.normal(self.test_cell_state_current_lstm_grid.copy(),
+                # self.cell_state: np.random.normal(self.test_cell_state_current.copy(), np.abs(
+                #     np.mean(self.test_cell_state_current) * kwargs["state_noise"])),
+                # self.hidden_state: np.random.normal(self.test_hidden_state_current.copy(), np.abs(
+                #     np.mean(self.test_cell_state_current) * kwargs["state_noise"])),
+                # self.cell_state_lstm_grid: np.random.normal(self.test_cell_state_current_lstm_grid.copy(),
+                #                                             kwargs["grid_noise"]),
+                # self.hidden_state_lstm_grid: np.random.normal(self.test_hidden_state_current_lstm_grid.copy(),
+                #                                               kwargs["grid_noise"]),
+                # TODO: adapt this code to work with other modules
+                self.qa_lstm.cell_state: np.random.normal(self.qa_lstm.test_cell_state_current.copy(), np.abs(
+                    np.mean(self.qa_lstm.test_cell_state_current) * kwargs["state_noise"])),
+                self.qa_lstm.hidden_state: np.random.normal(self.qa_lstm.test_hidden_state_current.copy(), np.abs(
+                    np.mean(self.qa_lstm.test_cell_state_current) * kwargs["state_noise"])),
+                self.grid_lstm.cell_state: np.random.normal(self.grid_lstm.test_cell_state_current.copy(),
                                                             kwargs["grid_noise"]),
-                self.hidden_state_lstm_grid: np.random.normal(self.test_hidden_state_current_lstm_grid.copy(),
+                self.grid_lstm.hidden_state: np.random.normal(self.grid_lstm.test_hidden_state_current.copy(),
                                                               kwargs["grid_noise"]),
                 self.cell_state_lstm_ped: self.test_cell_state_current_lstm_ped,
                 self.hidden_state_lstm_ped: self.test_hidden_state_current_lstm_ped,
@@ -449,13 +498,22 @@ class NetworkModel():
                 self.output_placeholder: kwargs['batch_y'],
                 self.seq_length: n_other_agents,
                 self.step: 0,
-                self.cell_state: np.random.normal(self.test_cell_state_current.copy(),
-                                                  np.abs(self.test_cell_state_current * kwargs["state_noise"])),
-                self.hidden_state: np.random.normal(self.test_hidden_state_current.copy(),
-                                                    np.abs(self.test_cell_state_current * kwargs["state_noise"])),
-                self.cell_state_lstm_grid: np.random.normal(self.test_cell_state_current_lstm_grid.copy(),
+                # self.cell_state: np.random.normal(self.test_cell_state_current.copy(),
+                #                                   np.abs(self.test_cell_state_current * kwargs["state_noise"])),
+                # self.hidden_state: np.random.normal(self.test_hidden_state_current.copy(),
+                #                                     np.abs(self.test_cell_state_current * kwargs["state_noise"])),
+                # self.cell_state_lstm_grid: np.random.normal(self.test_cell_state_current_lstm_grid.copy(),
+                #                                             kwargs["grid_noise"]),
+                # self.hidden_state_lstm_grid: np.random.normal(self.test_hidden_state_current_lstm_grid.copy(),
+                #                                               kwargs["grid_noise"]),
+                # TODO: adapt this code to work with other modules
+                self.qa_lstm.cell_state: np.random.normal(self.qa_lstm.test_cell_state_current.copy(),
+                                                  np.abs(self.qa_lstm.test_cell_state_current * kwargs["state_noise"])),
+                self.qa_lstm.hidden_state: np.random.normal(self.qa_lstm.test_hidden_state_current.copy(),
+                                                    np.abs(self.qa_lstm.test_cell_state_current * kwargs["state_noise"])),
+                self.grid_lstm.cell_state: np.random.normal(self.grid_lstm.test_cell_state_current.copy(),
                                                             kwargs["grid_noise"]),
-                self.hidden_state_lstm_grid: np.random.normal(self.test_hidden_state_current_lstm_grid.copy(),
+                self.grid_lstm.hidden_state: np.random.normal(self.grid_lstm.test_hidden_state_current.copy(),
                                                               kwargs["grid_noise"]),
                 self.cell_state_lstm_ped: np.random.normal(self.test_cell_state_current_lstm_ped.copy(),
                                                            kwargs["ped_noise"]),
@@ -503,21 +561,30 @@ class NetworkModel():
                         [1, self.rnn_state_size_lstm_concat])
 
     def update_test_hidden_state(self):
-        self.test_cell_state_current = self.cell_state_current.copy()
-        self.test_hidden_state_current = self.hidden_state_current.copy()
-        self.test_cell_state_current_lstm_grid = self.cell_state_current_lstm_grid.copy()
-        self.test_hidden_state_current_lstm_grid = self.hidden_state_current_lstm_grid.copy()
+        """
+
+        """
+        # self.test_cell_state_current = self.cell_state_current.copy()
+        # self.test_hidden_state_current = self.hidden_state_current.copy()
+        # self.test_cell_state_current_lstm_grid = self.cell_state_current_lstm_grid.copy()
+        # self.test_hidden_state_current_lstm_grid = self.hidden_state_current_lstm_grid.copy()
+        # ^^^ This is replaced by the following two lines vvv TODO: adapt the code to work with other modules
+        self.qa_lstm.update_test_states()
+        self.grid_lstm.update_test_states()
         self.test_cell_state_current_lstm_ped = self.cell_state_current_lstm_ped.copy()
         self.test_hidden_state_current_lstm_ped = self.hidden_state_current_lstm_ped.copy()
         self.test_cell_state_current_lstm_concat = self.cell_state_current_lstm_concat.copy()
         self.test_hidden_state_current_lstm_concat = self.hidden_state_current_lstm_concat.copy()
 
     def validation_step(self, sess, feed_dict_validation, update=True):
+        """
+
+        """
         batch_loss, _model_prediction, _current_state, _current_state_lstm_grid, _current_state_lstm_ped, \
         _current_state_lstm_concat, summary = sess.run([self.reconstruction_loss,
                                                         self.prediction,
-                                                        self.current_state,
-                                                        self.current_state_lstm_grid,
+                                                        self.qa_lstm.current_state,   # self.current_state # TODO: other modules
+                                                        self.grid_lstm.current_state,   # self.current_state_lstm_grid
                                                         self.current_state_lstm_ped,
                                                         self.current_state_lstm_concat,
                                                         self.loss_summary],
@@ -532,7 +599,9 @@ class NetworkModel():
         return batch_loss, summary, _model_prediction
 
     def train_step(self, sess, feed_dict_train, step=0):
+        """
 
+        """
         # Diversity Training
         if step > 2000 and self.args.diversity_update:
             dict = {"batch_vel": feed_dict_train[self.input_state_placeholder],
@@ -550,7 +619,7 @@ class NetworkModel():
             loss, _, y_model_pred = self.validation_step(sess, feed_test_dic, False)
             batch_y_varible = np.zeros((self.args.batch_size, self.args.truncated_backprop_length,
                                         self.args.prediction_horizon * self.args.output_dim))
-            # Grount truth
+            # Ground truth
             batch_y = feed_dict_train[self.output_placeholder]
 
             # Find most different trajectory index
@@ -589,8 +658,8 @@ class NetworkModel():
                                                                                                           self.total_loss,
                                                                                                           self.kl_loss,
                                                                                                           self.reconstruction_loss,
-                                                                                                          self.current_state,
-                                                                                                          self.current_state_lstm_grid,
+                                                                                                          self.qa_lstm.current_state, # used to be: self.current_state #TODO: other modules
+                                                                                                          self.grid_lstm.current_state,  # used to be: self.current_state_lstm_grid
                                                                                                           self.current_state_lstm_ped,
                                                                                                           self.current_state_lstm_concat,
                                                                                                           self.prediction,
@@ -625,14 +694,20 @@ class NetworkModel():
         return out
 
     def run_autoencoder(self, sess, feed_dict_train):
+        """
+
+        """
         _ = sess.run([self.autoencoder_update],
                      feed_dict=feed_dict_train)
 
     def predict(self, sess, feed_dict_train, update_state=True):
+        """
+
+        """
         _current_state, _current_state_lstm_grid, _current_state_lstm_ped, \
         _current_state_lstm_concat, \
-        _model_prediction, output_decoder, _likelihood = sess.run([self.current_state,
-                                                                   self.current_state_lstm_grid,
+        _model_prediction, output_decoder, _likelihood = sess.run([self.qa_lstm.current_state,  # self.current_state # TODO: other modules
+                                                                   self.grid_lstm.current_state,  # self.current_state_lstm_grid
                                                                    self.current_state_lstm_ped,
                                                                    self.current_state_lstm_concat,
                                                                    self.prediction,
@@ -667,8 +742,7 @@ class NetworkModel():
             sys.exit()
         else:
             print('Restoring model {}'.format(ckpt.model_checkpoint_path))
-            self.encoder_saver.restore(sess, ckpt.model_checkpoint_path)
-
+            self.encoder_saver.restore(sess, ckpt.model_checkpoint_path)        # This attribute is not defined anywhere
         return True
 
     def warmstart_convnet(self, args, sess):

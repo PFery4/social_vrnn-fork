@@ -567,7 +567,8 @@ class DataHandlerLSTM():
 		"""
 		print("Extracting the pedestrian data ...")
 		# Pedestrian data
-		# [id, timestep (s), timestep (ns), pos x, pos y, yaw, vel x, vel y, omega, goal x, goal y]
+		# [id, timestep (s), timestep (ns), pos x, pos y, yaw, vel x, vel y, omega, goal x, goal y]  <-- Incorrect?
+		# [frame_number pedestrian_ID pos_x pos_z pos_y v_x v_z v_y]
 		if os.path.exists(self.data_path +self.args.scenario+'/obsmat.txt'):
 			pedestrian_data = np.genfromtxt(os.path.join(self.data_path +self.args.scenario, 'obsmat.txt'), delimiter="  ")[1:, :]
 			pixel_data = False
@@ -617,6 +618,7 @@ class DataHandlerLSTM():
 
 		# Subsample trajectories (longer discretization time)
 		if self.dt != self.args.dt:
+			print("SUBSAMPLE TRAJECTORIES (longer discretization time)...")
 			for id in self.agent_container.getAgentIDs():
 				for traj in self.agent_container.getAgentTrajectories(id):
 					if len(traj) > self.min_length_trajectory:
@@ -868,8 +870,11 @@ class DataHandlerLSTM():
 			for prev_step in range(self.prev_horizon,-1,-1):
 				current_pos = np.array([trajectory.pose_vec[start_idx + tbp_step - prev_step, 0], trajectory.pose_vec[
 					                        start_idx + tbp_step - prev_step, 1]])
-				current_vel = np.array([trajectory.vel_vec[start_idx + tbp_step, 0], trajectory.vel_vec[
-					                        start_idx + tbp_step - prev_step - prev_step, 1]])
+				# MISTAKE HERE vvvvvv (replaced with correct implementation)
+				# current_vel = np.array([trajectory.vel_vec[start_idx + tbp_step, 0], trajectory.vel_vec[
+				# 	                        start_idx + tbp_step - prev_step - prev_step, 1]])
+				current_vel = np.array([trajectory.vel_vec[start_idx + tbp_step - prev_step, 0], trajectory.vel_vec[
+					                        start_idx + tbp_step - prev_step, 1]])
 
 				if self.args.normalize_data:
 					self.normalize_pos(current_pos)
@@ -885,7 +890,7 @@ class DataHandlerLSTM():
 																											current_vel[1]])
 				batch_pos[batch_idx, tbp_step, prev_step*self.input_state_dim:(prev_step+1)*self.input_state_dim] = np.array([current_pos[0],
 																											current_pos[1]])
-				
+
 			heading = math.atan2(current_vel[1], current_vel[0])
 			if centered_grid:
 				grid_center = current_pos
@@ -1290,7 +1295,7 @@ class DataHandlerLSTM():
 
 		return agent_dict
 
-	def plot_global_scenario(self,batch_grid,batch_x,batch_agent_real_traj,batch_goal,other_agents_pos,batch_agent_predicted_traj,t,seq_index):
+	def plot_global_scenario(self,batch_grid,batch_x,batch_agent_real_traj,batch_goal,other_agents_pos,batch_agent_predicted_traj,t,seq_index,block=False):
 		"""
 			inputs:
 				batch_grid: batch_grid numpy array (gridmap) in the global frame [Batch_size][truncated_back_propagation_time][width][height]
@@ -1324,22 +1329,23 @@ class DataHandlerLSTM():
 		ax_in.plot(batch_goal[seq_index,t, 0]*self.norm_const_x, batch_goal[seq_index,t, 1]*self.norm_const_y,
 							 color='purple', marker='o', label='Agent goal')
 
-		#plot predicted trajectory global frame
-		vel_pred = np.zeros((self.args.prediction_horizon, 2))
-		for mix_idx in range(self.args.n_mixtures):
-			# plot predicted trajectory global frame
-			for pred_step in range(self.args.prediction_horizon):
-				idx = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx
-				idy = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx + self.args.n_mixtures
-				mu_x = batch_agent_predicted_traj[seq_index, t, idx]
-				mu_y = batch_agent_predicted_traj[seq_index, t, idy]
-				vel_pred[pred_step, :] = [mu_x, mu_y]
+		#plot predicted trajectory global frame, if there is a prediction
+		if batch_agent_predicted_traj is not None:
+			vel_pred = np.zeros((self.args.prediction_horizon, 2))
+			for mix_idx in range(self.args.n_mixtures):
+				# plot predicted trajectory global frame
+				for pred_step in range(self.args.prediction_horizon):
+					idx = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx
+					idy = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx + self.args.n_mixtures
+					mu_x = batch_agent_predicted_traj[seq_index, t, idx]
+					mu_y = batch_agent_predicted_traj[seq_index, t, idy]
+					vel_pred[pred_step, :] = [mu_x, mu_y]
 
-			traj_pred = sup.path_from_vel(initial_pos=np.array([batch_x[seq_index,t, 0]*self.norm_const_x, batch_x[seq_index,t, 1]*self.norm_const_y]),
-																		pred_vel=vel_pred, dt=self.dt,n_vx=self.norm_const_vx,n_vy=self.norm_const_vy)
-		x_pred = traj_pred[:, 0] #* self.norm_const_x
-		y_pred = traj_pred[:, 1] #* self.norm_const_y
-		ax_in.plot(x_pred, y_pred, color='r',label='Predicted trajectory')
+				traj_pred = sup.path_from_vel(initial_pos=np.array([batch_x[seq_index,t, 0]*self.norm_const_x, batch_x[seq_index,t, 1]*self.norm_const_y]),
+																			pred_vel=vel_pred, dt=self.dt,n_vx=self.norm_const_vx,n_vy=self.norm_const_vy)
+			x_pred = traj_pred[:, 0] #* self.norm_const_x
+			y_pred = traj_pred[:, 1] #* self.norm_const_y
+			ax_in.plot(x_pred, y_pred, color='r',label='Predicted trajectory')
 
 		#plot real trajectory global frame
 		color_value = scalar_color_map.to_rgba(r)
@@ -1367,9 +1373,9 @@ class DataHandlerLSTM():
 				print("Oops!  That was no valid number.  Try again...")
 		ax_in.legend()
 		fig.canvas.draw()
-		pl.show(block=False)
+		pl.show(block=block)
 
-	def plot_local_scenario(self,batch_grid,batch_x,batch_agent_real_traj,batch_goal,other_agents_pos,batch_agent_predicted_traj,t,seq_index):
+	def plot_local_scenario(self,batch_grid,batch_x,batch_agent_real_traj,batch_goal,other_agents_pos,batch_agent_predicted_traj,t,seq_index, block=False):
 		"""
 			inputs:
 				global_grid: map grid of the scenario
@@ -1405,22 +1411,23 @@ class DataHandlerLSTM():
 		ax_out.set_xlim(x_lim)
 		ax_out.set_ylim(y_lim)
 
-		# plot predicted trajectory local frame
-		vel_pred = np.zeros((self.args.prediction_horizon, 2))
-		for mix_idx in range(self.args.n_mixtures):
-			# plot predicted trajectory global frame
-			for pred_step in range(self.args.prediction_horizon):
-				idx = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx
-				idy = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx + self.args.n_mixtures
-				mu_x = batch_agent_predicted_traj[seq_index, t, idx]
-				mu_y = batch_agent_predicted_traj[seq_index, t, idy]
-				vel_pred[pred_step, :] = [mu_x, mu_y]
+		# plot predicted trajectory local frame, if there is a prediction
+		if batch_agent_predicted_traj is not None:
+			vel_pred = np.zeros((self.args.prediction_horizon, 2))
+			for mix_idx in range(self.args.n_mixtures):
+				# plot predicted trajectory global frame
+				for pred_step in range(self.args.prediction_horizon):
+					idx = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx
+					idy = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx + self.args.n_mixtures
+					mu_x = batch_agent_predicted_traj[seq_index, t, idx]
+					mu_y = batch_agent_predicted_traj[seq_index, t, idy]
+					vel_pred[pred_step, :] = [mu_x, mu_y]
 
-			traj_pred = sup.path_from_vel(initial_pos=np.array([0, 0]),
-																		pred_vel=vel_pred, dt=self.dt,n_vx=self.norm_const_vx,n_vy=self.norm_const_vy)
-			x_pred = traj_pred[:, 0] #* self.norm_const_x
-			y_pred = traj_pred[:, 1] #* self.norm_const_y
-			ax_out.plot(x_pred, y_pred, color='r',label='Predicted trajectory')
+				traj_pred = sup.path_from_vel(initial_pos=np.array([0, 0]),
+											  pred_vel=vel_pred, dt=self.dt,n_vx=self.norm_const_vx,n_vy=self.norm_const_vy)
+				x_pred = traj_pred[:, 0] #* self.norm_const_x
+				y_pred = traj_pred[:, 1] #* self.norm_const_y
+				ax_out.plot(x_pred, y_pred, color='r',label='Predicted trajectory')
 
 		# plot real trajectory local frame does it make sense? isnt batch_y in the robot frame
 		real_traj = np.zeros((self.args.prediction_horizon, 2))
@@ -1431,8 +1438,8 @@ class DataHandlerLSTM():
 			mu_y = batch_agent_real_traj[seq_index, t, idy]
 			real_traj[i, :] = [mu_x, mu_y]
 		real_traj_global_frame = sup.path_from_vel(initial_pos=np.array([0, 0]),
-																								 pred_vel=real_traj,
-																							 dt=self.dt,n_vx=self.norm_const_vx,n_vy=self.norm_const_vy)
+												   pred_vel=real_traj,
+												   dt=self.dt,n_vx=self.norm_const_vx,n_vy=self.norm_const_vy)
 
 		# Query Agent Local frame plot
 		if real_traj[0, 0] > 0.1:
@@ -1471,7 +1478,7 @@ class DataHandlerLSTM():
 		ax_out.legend()
 		fig.canvas.draw()
 				#sleep(0.5)  # Time in seconds.
-		pl. show(block=False)
+		pl.show(block=block)
 
 	def add_agent_to_grid(self,batch_grid,position,velocity):
 		"""
