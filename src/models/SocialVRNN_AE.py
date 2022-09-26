@@ -1,20 +1,18 @@
+import argparse
+import tensorflow as tf
 from tensorflow_probability import distributions as tfd
 import sys
-
-if sys.version_info[0] < 3:
-	sys.path.append('../src/external')
-	from vrnn_cell import VariationalRNNCell as vrnn_cell
-	from tf_utils import *
-else:
-	from src.cells.vrnn_cell import VariationalRNNCell as vrnn_cell
-	from src.models.tf_utils import *
+from src.cells.vrnn_cell import VariationalRNNCell as vrnn_cell
+from src.models.tf_utils import linear
+from src.data_utils import Support as Sup
+from src.models import AE_pasttraj
 import numpy as np
 import os
 from colorama import Fore, Style
 
 class NetworkModel():
 
-	def __init__(self, args, is_training=True, batch_size=None):
+	def __init__(self, args: argparse.Namespace, is_training: bool = True, batch_size: int = None):
 		self.log_dir = args.log_dir
 		self.args = args
 		# Input- / Output dimensions
@@ -32,16 +30,22 @@ class NetworkModel():
 		self.learning_rate_init = args.learning_rate_init
 		self.beta_rate_init = args.beta_rate_init
 		# Network attributes
-		self.rnn_state_size = args.rnn_state_size
+
+		# Add AE submodule
+		self.traj_ae = AE_pasttraj.PastTrajAE(args=args)
+
+		# self.rnn_state_size = args.rnn_state_size	# TODO: DONE definition of self.traj_ae
 		self.rnn_state_size_lstm_grid = args.rnn_state_size_lstm_grid
 		self.rnn_state_size_lstm_ped = args.rnn_state_size_lstm_ped
 		self.rnn_state_size_lstm_concat = args.rnn_state_size_lstm_concat
 		self.fc_hidden_unit_size = args.fc_hidden_unit_size
-		self.prior_hidden_size = self.rnn_state_size + self.rnn_state_size_lstm_grid + self.rnn_state_size_lstm_ped
-		try:
-			self.sigma_bias = args.sigma_bias
-		except:
-			self.sigma_bias = 0.0
+		# self.prior_hidden_size = self.rnn_state_size + self.rnn_state_size_lstm_grid + self.rnn_state_size_lstm_ped  # TODO: check if line underneath works vvv
+		self.prior_hidden_size = self.traj_ae.latent_space_dim + self.rnn_state_size_lstm_grid + self.rnn_state_size_lstm_ped
+		# try:
+		# 	self.sigma_bias = args.sigma_bias
+		# except:
+		# 	self.sigma_bias = 0.0
+		self.sigma_bias = 0.0
 		# Training parameters
 		self.lambda_ = args.regularization_weight
 		self.batch_size = None
@@ -50,11 +54,14 @@ class NetworkModel():
 		self.regularization_weight = args.regularization_weight
 		self.grid_width = int(args.submap_width / args.submap_resolution)
 		self.grid_height = int(args.submap_height / args.submap_resolution)
+
 		# Specify placeholders
-		self.input_state_placeholder = tf.placeholder(dtype=tf.float32,
-		                                              shape=[self.batch_size, self.truncated_backprop_length,
-		                                                     self.input_state_dim * (self.prev_horizon + 1)],
-		                                              name='input_state')
+		# self.input_state_placeholder = tf.placeholder(dtype=tf.float32,
+		#                                               shape=[self.batch_size, self.truncated_backprop_length,
+		#                                                      self.input_state_dim * (self.prev_horizon + 1)],
+		#                                               name='input_state')	# TODO: DONE definition of self.traj_ae
+		self.input_state_placeholder = self.traj_ae.input_placeholder
+
 		self.input_grid_placeholder = tf.placeholder(dtype=tf.float32,
 		                                             shape=[self.batch_size, self.truncated_backprop_length,
 		                                                    self.grid_width, self.grid_height], name='input_grid')
@@ -71,8 +78,8 @@ class NetworkModel():
 		                           shape=[], name='global_step')
 		self.seq_length = tf.placeholder(tf.int32, [None])
 		# Initialize hidden states with zeros
-		self.cell_state_current = np.zeros([args.batch_size, args.rnn_state_size])
-		self.hidden_state_current = np.zeros([args.batch_size, args.rnn_state_size])
+		# self.cell_state_current = np.zeros([args.batch_size, args.rnn_state_size])	# TODO: done definition of self.traj_ae
+		# self.hidden_state_current = np.zeros([args.batch_size, args.rnn_state_size])	# TODO: done definition of self.traj_ae
 		self.cell_state_current_lstm_grid = np.zeros([args.batch_size, args.rnn_state_size_lstm_grid])
 		self.hidden_state_current_lstm_grid = np.zeros([args.batch_size, args.rnn_state_size_lstm_grid])
 		self.cell_state_current_lstm_ped = np.zeros([args.batch_size, args.rnn_state_size_lstm_ped])
@@ -82,8 +89,8 @@ class NetworkModel():
 
 		# Cells used for testing
 		# Initialize hidden states with zeros
-		self.test_cell_state_current = np.zeros([args.batch_size, args.rnn_state_size])
-		self.test_hidden_state_current = np.zeros([args.batch_size, args.rnn_state_size])
+		# self.test_cell_state_current = np.zeros([args.batch_size, args.rnn_state_size])		# TODO: done definition of self.traj_ae
+		# self.test_hidden_state_current = np.zeros([args.batch_size, args.rnn_state_size]) 	# TODO: done definition of self.traj_ae
 		self.test_cell_state_current_lstm_grid = np.zeros([args.batch_size, args.rnn_state_size_lstm_grid])
 		self.test_hidden_state_current_lstm_grid = np.zeros([args.batch_size, args.rnn_state_size_lstm_grid])
 		self.test_cell_state_current_lstm_ped = np.zeros([args.batch_size, args.rnn_state_size_lstm_ped])
@@ -91,12 +98,12 @@ class NetworkModel():
 		self.test_cell_state_current_lstm_concat = np.zeros([args.batch_size, self.rnn_state_size_lstm_concat])
 		self.test_hidden_state_current_lstm_concat = np.zeros([args.batch_size, self.rnn_state_size_lstm_concat])
 
-		# Pedestrian state LSTM
-		self.cell_state = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.rnn_state_size],
-		                                 name='cell_state')  # internal state of the cell (before output gate)
-		self.hidden_state = tf.placeholder(dtype=tf.float32, shape=[None, self.rnn_state_size],
-		                                   name='hidden_state')  # output of the cell (after output gate)
-		self.init_state_tuple = tf.contrib.rnn.LSTMStateTuple(self.cell_state, self.hidden_state)
+		# Pedestrian state LSTM		# TODO: done definition of self.traj_ae
+		# self.cell_state = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.rnn_state_size],
+		#                                  name='cell_state')  # internal state of the cell (before output gate)
+		# self.hidden_state = tf.placeholder(dtype=tf.float32, shape=[None, self.rnn_state_size],
+		#                                    name='hidden_state')  # output of the cell (after output gate)
+		# self.init_state_tuple = tf.contrib.rnn.LSTMStateTuple(self.cell_state, self.hidden_state)
 
 		# Static occupancy grid LSTM
 		self.cell_state_lstm_grid = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.rnn_state_size_lstm_grid],
@@ -122,11 +129,12 @@ class NetworkModel():
 		self.init_state_tuple_lstm_concat = tf.contrib.rnn.LSTMStateTuple(self.cell_state_lstm_concat,
 		                                                                  self.hidden_state_lstm_concat)
 
-		inputs_series = tf.unstack(self.input_state_placeholder, axis=1)
+		# inputs_series = tf.unstack(self.input_state_placeholder, axis=1)	# TODO: check if line underneath works vvv
+		inputs_series = self.traj_ae.input_series
 		outputs_series = tf.unstack(self.output_placeholder, axis=1)
 		outputs_diversity_series = tf.unstack(self.diversity_placeholder, axis=1)
 		# Print network info
-		print("Input list length: {}".format(len(inputs_series)))
+		# print("Input list length: {}".format(len(inputs_series)))
 		print("Output list length: {}".format(len(outputs_series)))
 		print("Single input shape: {}".format(inputs_series[0].get_shape()))
 		print("Single output shape: {}".format(outputs_series[0].get_shape()))
@@ -175,16 +183,21 @@ class NetworkModel():
 					# Embedding layer of pedestrian grid
 					self.cell_outputs_series_lstm_ped = self.process_pedestrian_grid(tf.unstack(ped_grid_feature_series,axis=1))
 
-				# LSTM cells to process pedestrian state
-				with tf.variable_scope('lstm_state') as scope:
-					self.cell = tf.nn.rnn_cell.LSTMCell(self.rnn_state_size, name='basic_lstm_cell', trainable=True)
-					self.cell_outputs_series_state, self.current_state = tf.contrib.rnn.static_rnn(self.cell, inputs_series,
-					                                                                               dtype=tf.float32,
-					                                                                               initial_state=self.init_state_tuple)
+				# LSTM cells to process pedestrian state	# TODO: check if implementation right underneath works vvv
+				# with tf.variable_scope('lstm_state') as scope:
+				# 	self.cell = tf.nn.rnn_cell.LSTMCell(self.rnn_state_size, name='basic_lstm_cell', trainable=True)
+				# 	self.cell_outputs_series_state, self.current_state = tf.contrib.rnn.static_rnn(self.cell, inputs_series,
+				# 	                                                                               dtype=tf.float32,
+				# 	                                                                               initial_state=self.init_state_tuple)
+				self.state_encoding = self.traj_ae.latent_output
+
+				# print(self.state_encoding)
+				# print(self.cell_outputs_series_lstm_grid)
+				# print(self.cell_outputs_series_lstm_ped)
 
 				# Concatenate the outputs of the three previous LSTMs and feed in first concatenated LSTM cell
 				concat_lstm = []
-				for lstm_out, grid_feature, ped_feature in zip(self.cell_outputs_series_state,
+				for lstm_out, grid_feature, ped_feature in zip(self.state_encoding,		# <-- TODO: used to be self.cell_outputs_series_state, check if this works
 				                                               self.cell_outputs_series_lstm_grid,
 				                                               self.cell_outputs_series_lstm_ped):
 					concat_lstm.append(
@@ -353,12 +366,13 @@ class NetworkModel():
 			## WIPCODE
 			for var in train_vars:
 				print(Fore.CYAN + f"TRAINABLE VARIABLE OF SOCIAL_VRNN:\t{var}" + Style.RESET_ALL)
-			## END OF WIPCODE
 
+	print(Fore.BLUE + "END OF INIT METHOD" + Style.RESET_ALL)
+	## END OF WIPCODE
 
 	def feed_dic(self, **kwargs):
 		if self.args.rotated_grid:
-			batch_x, batch_y = sup.rotate_batch_to_local_frame(kwargs['batch_y'], kwargs['batch_x'])
+			batch_x, batch_y = Sup.rotate_batch_to_local_frame(kwargs['batch_y'], kwargs['batch_x'])
 			batch_x = batch_x[:, :, 2:]
 		else:
 			batch_x = kwargs['batch_vel']
@@ -373,8 +387,8 @@ class NetworkModel():
 		        self.seq_length: n_other_agents,
 		        self.diversity_placeholder: kwargs['batch_div'],
 		        self.output_placeholder: batch_y,
-		        self.cell_state: self.cell_state_current,
-		        self.hidden_state: self.hidden_state_current,
+		        # self.cell_state: self.cell_state_current,		TODO: check if anything else needed.
+		        # self.hidden_state: self.hidden_state_current,	TODO: normally nothing required, the pasttraj AE only takes the time series as input
 		        self.cell_state_lstm_grid: np.random.normal(self.cell_state_current_lstm_grid, 0),
 		        self.hidden_state_lstm_grid: np.random.normal(self.hidden_state_current_lstm_grid, 0),
 		        self.cell_state_lstm_ped: self.cell_state_current_lstm_ped,
@@ -394,8 +408,8 @@ class NetworkModel():
 		        self.input_grid_placeholder: np.expand_dims(kwargs["batch_grid"][:, step, :, :], axis=1),
 		        self.step: 0,
 		        self.seq_length: n_other_agents,
-		        self.cell_state: np.random.normal(self.test_cell_state_current.copy(), np.abs(np.mean(np.mean(self.test_cell_state_current))*kwargs["state_noise"])),
-		        self.hidden_state: np.random.normal(self.test_hidden_state_current.copy(), np.abs(np.mean(np.mean(self.test_cell_state_current))*kwargs["state_noise"])),
+		        # self.cell_state: np.random.normal(self.test_cell_state_current.copy(), np.abs(np.mean(np.mean(self.test_cell_state_current))*kwargs["state_noise"])),			TODO: check if anything else is needed.
+		        # self.hidden_state: np.random.normal(self.test_hidden_state_current.copy(), np.abs(np.mean(np.mean(self.test_cell_state_current))*kwargs["state_noise"])),		TODO: normally nothing required, the pasttraj AE only needs the time series as input
 		        self.cell_state_lstm_grid: np.random.normal(self.test_cell_state_current_lstm_grid.copy(), kwargs["grid_noise"]),
 		        self.hidden_state_lstm_grid: np.random.normal(self.test_hidden_state_current_lstm_grid.copy(), kwargs["grid_noise"]),
 		        self.cell_state_lstm_ped: self.test_cell_state_current_lstm_ped,
@@ -404,7 +418,7 @@ class NetworkModel():
 		        self.hidden_state_lstm_concat: self.test_hidden_state_current_lstm_concat,
 		        }
 
-	def feed_val_dic(self, n_other_agent = None, **kwargs):
+	def feed_val_dic(self, n_other_agent=None, **kwargs):
 		n_other_agents = np.zeros([self.args.batch_size])
 		if n_other_agent is None:
 			for i, other in enumerate(kwargs['other_agents_pos']):
@@ -416,8 +430,8 @@ class NetworkModel():
 		        self.output_placeholder: kwargs['batch_y'],
 		        self.seq_length: n_other_agents,
 		        self.step: 0,
-		        self.cell_state: np.random.normal(self.test_cell_state_current.copy(), np.abs(self.test_cell_state_current*kwargs["state_noise"])),
-		        self.hidden_state: np.random.normal(self.test_hidden_state_current.copy(), np.abs(self.test_cell_state_current*kwargs["state_noise"])),
+		        # self.cell_state: np.random.normal(self.test_cell_state_current.copy(), np.abs(self.test_cell_state_current*kwargs["state_noise"])),			TODO: check if anything else is needed.
+		        # self.hidden_state: np.random.normal(self.test_hidden_state_current.copy(), np.abs(self.test_cell_state_current*kwargs["state_noise"])),		TODO: normally nothing required, the passtraj AE only takes time series as input
 		        self.cell_state_lstm_grid: np.random.normal(self.test_cell_state_current_lstm_grid.copy(), kwargs["grid_noise"]),
 		        self.hidden_state_lstm_grid: np.random.normal(self.test_hidden_state_current_lstm_grid.copy(), kwargs["grid_noise"]),
 		        self.cell_state_lstm_ped: np.random.normal(self.test_cell_state_current_lstm_ped.copy(), kwargs["ped_noise"]),
@@ -432,8 +446,9 @@ class NetworkModel():
 			for sequence_idx in range(sequence_reset.shape[0]):
 				if sequence_reset[sequence_idx] == 1:
 					# Hidden state of specific batch entry will be initialized with zeros if there was a jump in sequence
-					self.cell_state_current[sequence_idx, :] = np.zeros([1, self.rnn_state_size])
-					self.hidden_state_current[sequence_idx, :] = np.zeros([1, self.rnn_state_size])
+					# self.cell_state_current[sequence_idx, :] = np.zeros([1, self.rnn_state_size])
+					# self.hidden_state_current[sequence_idx, :] = np.zeros([1, self.rnn_state_size])
+					# TODO: check if this works. Normally nothing to do here wrt pasttraj autoencoder, since it is not recurrent
 					self.cell_state_current_lstm_grid[sequence_idx, :] = np.zeros([1, self.rnn_state_size_lstm_grid])
 					self.hidden_state_current_lstm_grid[sequence_idx, :] = np.zeros([1, self.rnn_state_size_lstm_grid])
 					self.cell_state_current_lstm_ped[sequence_idx, :] = np.zeros([1, self.rnn_state_size_lstm_ped])
@@ -448,8 +463,9 @@ class NetworkModel():
 			for sequence_idx in range(sequence_reset.shape[0]):
 				if sequence_reset[sequence_idx] == 1:
 					# Hidden state of specific batch entry will be initialized with zeros if there was a jump in sequence
-					self.test_cell_state_current[sequence_idx, :] = np.zeros([1, self.rnn_state_size])
-					self.test_hidden_state_current[sequence_idx, :] = np.zeros([1, self.rnn_state_size])
+					# self.test_cell_state_current[sequence_idx, :] = np.zeros([1, self.rnn_state_size])
+					# self.test_hidden_state_current[sequence_idx, :] = np.zeros([1, self.rnn_state_size])
+					# TODO: check if this works. Normally nothing to do here wrt the pasttraj autoencoder, since it is not recurrent
 					self.test_cell_state_current_lstm_grid[sequence_idx, :] = np.zeros([1, self.rnn_state_size_lstm_grid])
 					self.test_hidden_state_current_lstm_grid[sequence_idx, :] = np.zeros([1, self.rnn_state_size_lstm_grid])
 					self.test_cell_state_current_lstm_ped[sequence_idx, :] = np.zeros([1, self.rnn_state_size_lstm_ped])
@@ -458,8 +474,8 @@ class NetworkModel():
 					self.test_hidden_state_current_lstm_concat[sequence_idx, :] = np.zeros([1, self.rnn_state_size_lstm_concat])
 
 	def update_test_hidden_state(self):
-		self.test_cell_state_current = self.cell_state_current.copy()
-		self.test_hidden_state_current = self.hidden_state_current.copy()
+		# self.test_cell_state_current = self.cell_state_current.copy()			TODO: check if anything else is needed.
+		# self.test_hidden_state_current = self.hidden_state_current.copy()		TODO: normally nothing required. Pasttraj AE only takes the time series as input
 		self.test_cell_state_current_lstm_grid = self.cell_state_current_lstm_grid.copy()
 		self.test_hidden_state_current_lstm_grid = self.hidden_state_current_lstm_grid.copy()
 		self.test_cell_state_current_lstm_ped = self.cell_state_current_lstm_ped.copy()
@@ -468,18 +484,26 @@ class NetworkModel():
 		self.test_hidden_state_current_lstm_concat = self.hidden_state_current_lstm_concat.copy()
 
 	def validation_step(self, sess, feed_dict_validation,update = True):
-		batch_loss, _model_prediction,_current_state, _current_state_lstm_grid, _current_state_lstm_ped, \
+		# TODO: removing the _current_state from this session run, check the implementation just below
+		# batch_loss, _model_prediction,_current_state, _current_state_lstm_grid, _current_state_lstm_ped, \
+		# _current_state_lstm_concat, summary = sess.run([self.reconstruction_loss,
+		# 												self.prediction,
+		# 												self.current_state,
+		# 												self.current_state_lstm_grid,
+		# 												self.current_state_lstm_ped,
+		# 												self.current_state_lstm_concat,
+		# 												self.loss_summary], feed_dict=feed_dict_validation)
+
+		batch_loss, _model_prediction, _current_state_lstm_grid, _current_state_lstm_ped, \
 		_current_state_lstm_concat, summary = sess.run([self.reconstruction_loss,
-		                                                self.prediction,
-		                                                                    self.current_state,
-		                                                                    self.current_state_lstm_grid,
-		                                                                    self.current_state_lstm_ped,
-		                                                                    self.current_state_lstm_concat,
-		                                                                    self.loss_summary],
-		                                                                   feed_dict=feed_dict_validation)
+														self.prediction,
+														self.current_state_lstm_grid,
+														self.current_state_lstm_ped,
+														self.current_state_lstm_concat,
+														self.loss_summary], feed_dict=feed_dict_validation)
 
 		if update:
-			self.test_cell_state_current, self.test_hidden_state_current = _current_state
+			# self.test_cell_state_current, self.test_hidden_state_current = _current_state		TODO: simply removed this line, nothing to add normally
 			self.test_cell_state_current_lstm_grid, self.test_hidden_state_current_lstm_grid = _current_state_lstm_grid
 			self.test_cell_state_current_lstm_ped, self.test_hidden_state_current_lstm_ped = _current_state_lstm_ped
 			self.test_cell_state_current_lstm_concat, self.test_hidden_state_current_lstm_concat = _current_state_lstm_concat
@@ -504,7 +528,7 @@ class NetworkModel():
 			feed_test_dic = self.feed_val_dic(n_other_agent=feed_dict_train[self.seq_length],**dict)
 			loss, _, y_model_pred = self.validation_step(sess, feed_test_dic, False)
 			batch_y_varible = np.zeros((self.args.batch_size, self.args.truncated_backprop_length,
-			                            self.args.prediction_horizon * self.args.output_dim))
+										self.args.prediction_horizon * self.args.output_dim))
 			# Grount truth
 			batch_y = feed_dict_train[self.output_placeholder]
 
@@ -532,34 +556,62 @@ class NetworkModel():
 			# Assemble feed dict for training
 			feed_dict_train[self.diversity_placeholder] = batch_y_varible
 
-		_, batch_loss, kl_loss, recons_loss, _current_state, _current_state_lstm_grid, _current_state_lstm_ped, \
+		# TODO: removed the _current_state variable from this session run. Check implementation underneath
+		# _, batch_loss, kl_loss, recons_loss, _current_state, _current_state_lstm_grid, _current_state_lstm_ped, \
+		# _current_state_lstm_concat, \
+		# _model_prediction, _summary_str, lr, beta, output_decoder, div_loss, autoencoder_loss = sess.run([self.update,
+		#                                                                                                   self.total_loss,
+		#                                                                                                   self.kl_loss,
+		#                                                                                                   self.reconstruction_loss,
+		#                                                                                                   self.current_state,
+		#                                                                                                   self.current_state_lstm_grid,
+		#                                                                                                   self.current_state_lstm_ped,
+		#                                                                                                   self.current_state_lstm_concat,
+		#                                                                                                   self.prediction,
+		#                                                                                                   self.summary,
+		#                                                                                                   self.learning_rate,
+		#                                                                                                   self.beta,
+		#                                                                                                   self.deconv1,
+		#                                                                                                   self.div_loss,
+		#                                                                                                   self.autoencoder_loss],
+		#                                                                                                  feed_dict=feed_dict_train)
+
+		_, batch_loss, kl_loss, recons_loss, _current_state_lstm_grid, _current_state_lstm_ped, \
 		_current_state_lstm_concat, \
 		_model_prediction, _summary_str, lr, beta, output_decoder, div_loss, autoencoder_loss = sess.run([self.update,
-		                                                                                                  self.total_loss,
-		                                                                                                  self.kl_loss,
-		                                                                                                  self.reconstruction_loss,
-		                                                                                                  self.current_state,
-		                                                                                                  self.current_state_lstm_grid,
-		                                                                                                  self.current_state_lstm_ped,
-		                                                                                                  self.current_state_lstm_concat,
-		                                                                                                  self.prediction,
-		                                                                                                  self.summary,
-		                                                                                                  self.learning_rate,
-		                                                                                                  self.beta,
-		                                                                                                  self.deconv1,
-		                                                                                                  self.div_loss,
-		                                                                                                  self.autoencoder_loss],
-		                                                                                                 feed_dict=feed_dict_train)
-		self.cell_state_current, self.hidden_state_current = _current_state
+																										  self.total_loss,
+																										  self.kl_loss,
+																										  self.reconstruction_loss,
+																										  self.current_state_lstm_grid,
+																										  self.current_state_lstm_ped,
+																										  self.current_state_lstm_concat,
+																										  self.prediction,
+																										  self.summary,
+																										  self.learning_rate,
+																										  self.beta,
+																										  self.deconv1,
+																										  self.div_loss,
+																										  self.autoencoder_loss],
+																										 feed_dict=feed_dict_train)
+
+		# self.cell_state_current, self.hidden_state_current = _current_state
 		self.cell_state_current_lstm_grid, self.hidden_state_current_lstm_grid = _current_state_lstm_grid
 		self.cell_state_current_lstm_ped, self.hidden_state_current_lstm_ped = _current_state_lstm_ped
 		self.cell_state_current_lstm_concat, self.hidden_state_current_lstm_concat = _current_state_lstm_concat
 
+
 		# Train autoencoder if loss larger than threshold
 		""""""
 		if np.mean(autoencoder_loss) > 0.05:
+			print(Fore.YELLOW + "TRAINING THE CNN AUTOENCODER" + Style.RESET_ALL)		# check how often the CNN is being updated
 			self.run_autoencoder(sess, feed_dict_train)
 			self.convnet_saver.save(sess, self.args.pretrained_convnet_path + '/final-model.ckpt')
+
+		# Train the AE pasttraj submodule
+		train_qa_ae = True
+		if train_qa_ae:
+			print(Fore.YELLOW + "TRAINING THE QUERY AGENT AUTOENCODER" + Style.RESET_ALL)
+			self.traj_ae.run_update_step(sess=sess, input_data=feed_dict_train["batch_vel"])
 
 		out = {"batch_loss": recons_loss,
 		       "model_predictions": _model_prediction,
@@ -568,8 +620,7 @@ class NetworkModel():
 		       "autoencoder_loss": autoencoder_loss,
 		       "log loss": batch_loss,
 		       "kl_loss": kl_loss,
-		       "output_decoder": output_decoder
-		       }
+		       "output_decoder": output_decoder}
 
 		return out
 
@@ -578,20 +629,38 @@ class NetworkModel():
 		_ = sess.run([self.autoencoder_update],
 		             feed_dict=feed_dict_train)
 
+	def run_query_agent_autoencoder(self, sess, feed_dict_train):
+		#TODO: verify implementation is correct
+
+		print(feed_dict_train["batch_vel"].shape)
+		print(type(feed_dict_train["batch_vel"]))
+		self.traj_ae.run_update_step(sess=sess, input_data=0)
+
 
 	def predict(self, sess, feed_dict_train, update_state=True):
-		_current_state, _current_state_lstm_grid, _current_state_lstm_ped, \
+		# TODO: removed _current_state variable, check implementation just below
+		# _current_state, _current_state_lstm_grid, _current_state_lstm_ped, \
+		# _current_state_lstm_concat, \
+		# _model_prediction, output_decoder, _likelihood = sess.run([self.current_state,
+		#                                               self.current_state_lstm_grid,
+		#                                               self.current_state_lstm_ped,
+		#                                               self.current_state_lstm_concat,
+		#                                               self.prediction,
+		#                                               self.deconv1,
+        #                                           self.likelihood],
+		#                                              feed_dict=feed_dict_train)
+
+		_current_state_lstm_grid, _current_state_lstm_ped, \
 		_current_state_lstm_concat, \
-		_model_prediction, output_decoder, _likelihood = sess.run([self.current_state,
-		                                              self.current_state_lstm_grid,
-		                                              self.current_state_lstm_ped,
-		                                              self.current_state_lstm_concat,
-		                                              self.prediction,
-		                                              self.deconv1,
-                                                  self.likelihood],
-		                                             feed_dict=feed_dict_train)
+		_model_prediction, output_decoder, _likelihood = sess.run([self.current_state_lstm_grid,
+																   self.current_state_lstm_ped,
+																   self.current_state_lstm_concat,
+																   self.prediction,
+																   self.deconv1,
+																   self.likelihood], feed_dict=feed_dict_train)
+
 		if update_state:
-			self.test_cell_state_current, self.test_hidden_state_current = _current_state
+			# self.test_cell_state_current, self.test_hidden_state_current = _current_state
 			self.test_cell_state_current_lstm_grid, self.test_hidden_state_current_lstm_grid = _current_state_lstm_grid
 			self.test_cell_state_current_lstm_ped, self.test_hidden_state_current_lstm_ped = _current_state_lstm_ped
 			self.test_cell_state_current_lstm_concat, self.test_hidden_state_current_lstm_concat = _current_state_lstm_concat
@@ -611,18 +680,25 @@ class NetworkModel():
 			sys.exit()
 
 
-	def warmstart_model_encoder(self, args, sess):
-		# Restore whole model
-		print('Loading session from "{}"'.format(args.pretrained_encoder_path))
-		ckpt = tf.train.get_checkpoint_state(args.pretrained_encoder_path)
-		if ckpt == None:
-			print(Fore.RED +"Error. Encoder not found...")
-			sys.exit()
-		else:
-			print('Restoring model {}'.format(ckpt.model_checkpoint_path))
-			self.encoder_saver.restore(sess, ckpt.model_checkpoint_path)
-
-		return True
+	# def warmstart_model_encoder(self, args, sess):
+	#
+	# 	# TODO: check if this method is being called anywhere
+	# 	# I think this method might be without purpose. self.encoder_saver is not defined anywhere.
+	# 	# The replacing method for this one might be warmstart_convnet. This method might just be a left-over artifact.
+	# 	# I am almost certain that this function is of no use. Will try running the code with it commented out
+	# 	# TODO: remove this method once confirmed of this suspicion ^^^
+	#
+	# 	# Restore whole model
+	# 	print('Loading session from "{}"'.format(args.pretrained_encoder_path))
+	# 	ckpt = tf.train.get_checkpoint_state(args.pretrained_encoder_path)
+	# 	if ckpt == None:
+	# 		print(Fore.RED +"Error. Encoder not found...")
+	# 		sys.exit()
+	# 	else:
+	# 		print('Restoring model {}'.format(ckpt.model_checkpoint_path))
+	# 		self.encoder_saver.restore(sess, ckpt.model_checkpoint_path)
+	#
+	# 	return True
 
 
 	def warmstart_convnet(self, args, sess):
@@ -635,6 +711,11 @@ class NetworkModel():
 		else:
 			print('Restoring convnet {}'.format(ckpt_conv.model_checkpoint_path))
 			self.convnet_saver.restore(sess, ckpt_conv.model_checkpoint_path)
+
+	def warmstart_query_agent_ae(self, args, sess):
+		# restore the query agent autoencoder parameters with those from a pretrained architecture
+		print(f'Loading Query Agent Autoencoder parameters from:\n{args.pretrained_qa_ae_path}')
+		self.traj_ae.load_model(sess=sess, load_dir=os.path.basename(args.pretrained_qa_ae_path))
 
 
 	def get_diversity_loss(self, mux, muy, sigmax, sigmay):
@@ -839,7 +920,6 @@ class NetworkModel():
 
 					self.autoencoder_loss = tf.reduce_mean(
 						tf.square(tf.abs(grid_batch - self.deconv1)), name="autoencoder_loss")
-
 
 			else:
 				conv1 = tf.contrib.layers.conv2d(grid_batch, conv1_number_filters, [conv1_kernel_size, conv1_kernel_size],

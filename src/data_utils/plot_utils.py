@@ -11,6 +11,7 @@ if sys.version_info[0] < 3:
   import Support as sup
 else:
 	import src.data_utils.Support as sup
+import tensorflow as tf
 import matplotlib.pyplot as pl
 import matplotlib.animation as animation
 from matplotlib.animation import FFMpegWriter
@@ -1179,3 +1180,133 @@ def matplot_dataset(trajs, args):
 		ax.set_xlim([min_x, max_x])
 		ax.set_ylim([min_y, max_y])
 		fig.savefig(save_img_to_file)
+
+#### OWN DEFINITIONS
+
+def centered_batch_pos(batch_pos):
+	"""
+    Transforms the batch of position array of shape [batch_size, ttrunc_BPTT, timeseries * state_dim]
+
+    The output contains the complete position time series without the multiple time axes ttrunc_BPTT.
+    The position values are expressed relative to the most recent position in the time series (which makes that position
+    centered at [0, 0])
+    """
+	batch_pos_copy = np.copy(batch_pos)
+
+	processed_batch_pos = np.zeros((batch_pos_copy.shape[0], batch_pos_copy.shape[2] + 2 * (batch_pos_copy.shape[1] - 1)))
+	for b_idx in range(batch_pos_copy.shape[0]):
+		batch_pos_copy[b_idx, :, ::2] -= batch_pos_copy[b_idx, -1, 0]
+		batch_pos_copy[b_idx, :, 1::2] -= batch_pos_copy[b_idx, -1, 1]
+
+		full_series = batch_pos_copy[b_idx, -1, :]
+		for t_idx in range(batch_pos_copy.shape[1] - 1, 0, -1):
+			full_series = np.append(full_series, batch_pos_copy[b_idx, t_idx - 1, -2:])
+		processed_batch_pos[b_idx] = full_series
+
+	return processed_batch_pos
+
+def centered_batch_pos_from_vel(batch_vel):
+	"""
+	Produces the same output as centered_batch_pos, but the process is obtained by integrating the velocity signal of
+	a batch_vel array intead of a position array.
+	"""
+	batch_vel_copy = np.copy(batch_vel)
+
+	dt = 0.4
+	batch_vel_copy *= -dt
+
+	processed_batch_vel = np.zeros((batch_vel_copy.shape[0], batch_vel_copy.shape[2]+2*(batch_vel_copy.shape[1]-2)))
+	for b_idx in range(batch_vel_copy.shape[0]):
+		full_series = batch_vel_copy[b_idx, -1, :]
+		for t_idx in range(batch_vel_copy.shape[1]-1, 1, -1):
+			full_series = np.append(full_series, batch_vel_copy[b_idx, t_idx-1, -2:])
+		processed_batch_vel[b_idx] = full_series
+		processed_batch_vel[b_idx, ::2] = np.cumsum(processed_batch_vel[b_idx, ::2])
+		processed_batch_vel[b_idx, 1::2] = np.cumsum(processed_batch_vel[b_idx, 1::2])
+
+	processed_batch_vel = np.append(np.zeros((batch_vel_copy.shape[0], 2)), processed_batch_vel, axis=1)
+	return processed_batch_vel
+
+def plot_batch_vel(centered_batch_vel, centered_batch_pos, block=False):
+	"""
+	Takes batch_vel and batch_pos arrays (each containing 16 training instances), which have been preprocessed by
+	centered_batch_pos_from_vel and centered_batch_pos respectively. The training instances are each plotted in a
+	subfigure, allowing for better visualization of the input data.
+	"""
+	assert centered_batch_pos.shape[0] == centered_batch_vel.shape[0] == 16
+	fig, axs = pl.subplots(4, 4)
+
+	ax_lim = 5
+
+	for b_idx in range(centered_batch_pos.shape[0]):
+		row_idx, col_idx = b_idx // 4, b_idx % 4
+		axs[row_idx, col_idx].set_xlim([-ax_lim, ax_lim])
+		axs[row_idx, col_idx].set_ylim([-ax_lim, ax_lim])
+		axs[row_idx, col_idx].plot(centered_batch_vel[b_idx, ::2], centered_batch_vel[b_idx, 1::2])
+		axs[row_idx, col_idx].scatter(centered_batch_pos[b_idx, ::2], centered_batch_pos[b_idx, 1::2],s=40, facecolors='none',edgecolors='r')
+
+	pl.show(block=block)
+
+def visualize_traintest_batches(data_handler, n_train=10, n_test=10):
+	"""
+	extracts n_train batches and n_test batches from the data_handler, and viualizes the position and velocity training
+	instances from those batches.
+	"""
+
+	print("PLOTTING TRAIN INSTANCES")
+	for step in range(n_train):
+		_, batch_vel, batch_pos, _, _, _, _, _, _, _ = data_handler.getBatch()
+
+		centered_pos = centered_batch_pos(batch_pos)
+		centered_vel = centered_batch_pos_from_vel(batch_vel)
+		plot_batch_vel(centered_vel, centered_pos, block=True)
+
+	print("PLOTTING TEST INSTANCES")
+	for step in range(n_test):
+		testbatch = data_handler.getTestBatch()
+		batch_vel = testbatch['batch_vel']
+		batch_pos = testbatch['batch_pos']
+
+		centered_pos = centered_batch_pos(batch_pos)
+		centered_vel = centered_batch_pos_from_vel(batch_vel)
+		plot_batch_vel(centered_vel, centered_pos, block=True)
+
+def get_weight_value(session: tf.Session, weight_str: str, n_weights: int = None):
+	"""
+	Provides a short string containing the first few values of the parameter weights contained within the variable
+	specified by the 'weight_str' argument.
+
+	*This function has been designed to provide an easy debugging check for verification that parameter weights
+	are or are not being updated, depending on the training operations being performed during a session run.
+	"""
+	param_weight = session.run(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, weight_str))[0]
+	param_weight = param_weight.flatten()
+	if n_weights is None:
+		n = param_weight.size
+	else:
+		n = min(param_weight.size, n_weights)
+	weight_list = list(param_weight[:n])
+	return weight_list
+
+def plot_QA_AE_loss_graph(exp_num):
+	"""
+	Plots the loss graphs of the Query Agent training process.
+	The results are contained within a 'results.pkl' file, within the experiment run's directory, specified by 'exp_num'
+	(this directory is found under
+	"""
+	filepath = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+											'../../trained_models/PastTrajAE',
+											str(exp_num), 'results/results.pkl'))
+	assert os.path.exists(filepath), f"Path does not exist:\n{filepath}"
+
+	with open(filepath, 'rb') as file:
+		out_dict = pkl.load(file)
+
+	title_str = f"{exp_num} (trained with: {out_dict['dataset']})"
+
+	pl.plot(list(range(0, out_dict["num_steps"], out_dict["log_freq"])), out_dict["val_losses"],
+			 label="Validation Loss")
+	pl.plot(list(range(0, out_dict["num_steps"])), out_dict["train_losses"], label="Train Loss")
+	pl.title(title_str)
+	pl.legend()
+	pl.show(block=True)

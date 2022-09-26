@@ -1,54 +1,55 @@
 # This script can be used to try out things freely
+import sys
+sys.path.append('../')
+
+import argparse
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from src.data_utils import DataHandlerLSTM as dhlstm
-from src.train import parse_args, summarise_args
+from src.train_WIP import parse_args, print_args
 from src.models import AE_pasttraj
-from colorama import Fore, Style
+from src.data_utils import plot_utils
 import numpy as np
-
-
-def trainAE(model: AE_pasttraj.PastTrajAE, sess: tf.Session, num_steps=1000, log_freq=10):
-
-    train_losses = []
-    val_losses = []
-    val_steps = []
-    best_loss = float('inf')
-    for step in range(num_steps):
-        batch_x, batch_vel, batch_pos, batch_goal, batch_grid, batch_ped_grid, batch_y, batch_pos_target, other_agents_pos, new_epoch = data_prep.getBatch()
-
-        losses = model.run_update_step(sess=sess, input_data=batch_vel)
-        train_losses.append(losses["reconstruction_loss"])
-
-        if step % log_freq == 0:
-            testbatch = data_prep.getTestBatch()
-            test_loss = model.run_val_step(sess=sess, input_data=testbatch["batch_vel"])
-            val_losses.append(test_loss["reconstruction_loss"])
-            val_steps.append(step)
-
-            log = f"step {step}\t| Training Loss: {losses['reconstruction_loss']:.4f}\t| Validation Loss: {test_loss['reconstruction_loss']:.4f}"
-
-            if test_loss["reconstruction_loss"] < best_loss:
-                model.save_model(sess=sess, step=step)
-                best_loss = test_loss["reconstruction_loss"]
-                log += "\t| Saved"
-
-            print(log)
-
-    model.save_model(sess=sess, step=step, filename="final-model.ckpt")
-
-    output_dict = {"train_losses": train_losses,
-                   "num_steps": num_steps,
-                   "val_losses": val_losses,
-                   "val_steps": val_steps}
-    return output_dict
+import os
+import pickle as pkl
+import json
 
 
 if __name__ == '__main__':
 
+    # exp_num, scenario, optimizer, encoding layers, latent_space_dim
+
+    configs = [[444005, 'real_world/ewap_dataset/seq_hotel', 'Adam', [12], 8],
+               [444006, 'real_world/ewap_dataset/seq_eth', 'Adam', [12], 8],
+               [444007, 'real_world/st', 'Adam', [12], 8],
+               [444008, 'real_world/zara_01', 'Adam', [12], 8],
+               [444009, 'real_world/zara_02', 'Adam', [12], 8],
+               [444010, 'real_world/ewap_dataset/seq_hotel', 'RMSProp', [12], 8],
+               [444011, 'real_world/ewap_dataset/seq_eth', 'RMSProp', [12], 8],
+               [444012, 'real_world/st', 'RMSProp', [12], 8],
+               [444013, 'real_world/zara_01', 'RMSProp', [12], 8],
+               [444014, 'real_world/zara_02', 'RMSProp', [12], 8],
+               [444015, 'real_world/ewap_dataset/seq_hotel', 'Adam', [10, 6], 2],
+               [444016, 'real_world/ewap_dataset/seq_eth', 'Adam', [10, 6], 2],
+               [444017, 'real_world/st', 'Adam', [10, 6], 2],
+               [444018, 'real_world/zara_01', 'Adam', [10, 6], 2],
+               [444019, 'real_world/zara_02', 'Adam', [10, 6], 2],
+               [444020, 'real_world/ewap_dataset/seq_hotel', 'RMSProp', [10, 6], 2],
+               [444021, 'real_world/ewap_dataset/seq_eth', 'RMSProp', [10, 6], 2],
+               [444022, 'real_world/st', 'RMSProp', [10, 6], 2],
+               [444023, 'real_world/zara_01', 'RMSProp', [10, 6], 2],
+               [444024, 'real_world/zara_02', 'RMSProp', [10, 6], 2]]
+
+    del(configs)
+
+    # set number of training steps and log frequency
+    num_steps = 5000
+    log_freq = 1
+
     args = parse_args()
 
-    summarise_args(args)
+    print_args(args)
+
 
     # Create Datahandler class
     data_prep = dhlstm.DataHandlerLSTM(args)
@@ -62,29 +63,25 @@ if __name__ == '__main__':
 
     sess = tf.Session()
 
-    model_config = {'input_state_dim': args.input_state_dim,
-                    'truncated_backprop_length': args.truncated_backprop_length,
-                    'prev_horizon': args.prev_horizon,
-                    'encoding_layers_dim': [8],
-                    'latent_space_dim': 4}
-
-    for k, v in model_config.items():
-        print(k, v)
-
-    # batch_x, batch_vel, batch_pos, batch_goal, batch_grid, batch_ped_grid, batch_y, batch_pos_target, other_agents_pos, new_epoch = data_prep.getBatch()
-    #
-    # print(batch_vel[6, :, :])
-    # print()
-    # print(batch_pos[6, :, :])
-    # print()
-    # print(batch_pos[6, :, :] - 0.4 * batch_vel[6, :, :])
-
-    ae_model = AE_pasttraj.PastTrajAE(config=model_config, sess=sess)
+    ae_model = AE_pasttraj.PastTrajAE(args=args)
     ae_model.describe()
 
-    out_dict = trainAE(ae_model, sess=sess, num_steps=20000)
+    sess.run(tf.global_variables_initializer())
+    ae_model.initialize_random_weights(sess)
 
-    plt.plot(out_dict["val_steps"], out_dict["val_losses"])
-    plt.plot(list(range(out_dict["num_steps"])), out_dict["train_losses"])
-    plt.show()
+    out_dict = AE_pasttraj.trainAE(model=ae_model,
+                                   data_prep=data_prep,
+                                   sess=sess,
+                                   num_steps=num_steps,
+                                   log_freq=log_freq)
 
+    # preparing directory to save results
+    results_dir = os.path.join(ae_model.full_save_path, "results/")
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+
+    # saving results
+    out_file = open(os.path.join(results_dir, "results.pkl"), "wb")
+    pkl.dump(out_dict, out_file, protocol=2)
+    with open(os.path.join(results_dir, "results.json"), "w") as f:
+        json.dump(out_dict, f)

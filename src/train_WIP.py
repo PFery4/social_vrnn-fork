@@ -20,10 +20,16 @@ def parse_args():
     Specify the hyperparameters and settings for running the script
     """
     pretrained_convnet_path = "../trained_models/autoencoder_with_ped"
+    best_ae = 404
+    pretrained_qa_ae_path = f"../trained_models/PastTrajAE/{best_ae}"
 
     data_path = '../data/'
     scenario = 'real_world/ewap_dataset/seq_hotel'
-    exp_num = 444001
+    # scenario = 'real_world/ewap_dataset/seq_eth'
+    # scenario = 'real_world/st'
+    # scenario = 'real_world/zara_01'
+    # scenario = 'real_world/zara_02'
+    exp_num = 444004
 
     # Hyperparameters
     n_epochs = 2
@@ -36,9 +42,12 @@ def parse_args():
     prev_horizon = 7
 
     # Query Agent input processing
-    qa_module = "LSTM"      # can be either "LSTM" or TODO: add "AE" and "VAE" to the options once they are implemented.
-    rnn_state_size = 32
+    # qa_module = "LSTM"      # can be either "LSTM" or TODO: add "AE" and "VAE" to the options once they are implemented.
+    query_agent_ae_encoding_layers = [12, 8]
+    query_agent_ae_latent_space_dim = 4
+    query_agent_ae_optimizer = 'Adam'
 
+    rnn_state_size = 32
     rnn_state_size_lstm_grid = 256
     rnn_state_size_lstm_ped = 128
     rnn_state_ped_size = 16
@@ -103,16 +112,16 @@ def parse_args():
 
     parser.add_argument('--model_name',
                         help='Path to directory that comprises the model (default="model_name").',
-                        type=str, default="WIP_SocialVRNN")
+                        type=str, default="SocialVRNN_AE")
     parser.add_argument('--model_path',
                         help='Path to directory to save the model (default=""../trained_models/"+model_name").',
                         type=str, default='../trained_models/')
     parser.add_argument('--pretrained_convnet_path',
                         help='Path to directory that comprises the pre-trained convnet model (default=" ").',
                         type=str, default=pretrained_convnet_path)
-    parser.add_argument('--log_dir',
-                        help='Path to the log directory of the model (default=""../trained_models/"+model_name").',
-                        type=str, default=r"\log")
+    # parser.add_argument('--log_dir',
+    #                     help='Path to the log directory of the model (default=""../trained_models/"+model_name").',
+    #                     type=str, default=r"\log")        # NOT NEEDED AS IT IS BEING ALTERED AFTER PARSING
     parser.add_argument('--scenario', help='Scenario of the dataset (default="").',
                         type=str, default=scenario)
     parser.add_argument('--real_world_data', help='Real world dataset (default=True).', type=sup.str2bool,
@@ -246,10 +255,27 @@ def parse_args():
                         default=tensorboard_logging)
 
     # My added options
-    parser.add_argument('--qa_module', help='Which module to use for processing of the Query Agent past trajectory input. Can either be "LSTM", ', type=str,
-                        default=qa_module) #TODO: add "AE" or "VAE" options once they are implemented.
+    # parser.add_argument('--qa_module', help='Which module to use for processing of the Query Agent past trajectory input. Can either be "LSTM", ', type=str,
+    #                     default=qa_module) #TODO: add "AE" or "VAE" options once they are implemented.
+    parser.add_argument('--query_agent_ae_encoding_layers',
+                        nargs='+',
+                        help='list of integers, which specify the dimensions of the encoding layers of the Query Agent past trajectory autoencoder',
+                        type=int, default=query_agent_ae_encoding_layers)
+    parser.add_argument('--query_agent_ae_latent_space_dim',
+                        help='dimension of the latent space of the Query Agent past trajectory autoencoder',
+                        type=int, default=query_agent_ae_latent_space_dim)
+    parser.add_argument('--query_agent_ae_optimizer',
+                        help='can either be "Adam" of "RMSProp", specifies the optimizer for the Query Agent past trajectory autoencoder',
+                        type=str, default=query_agent_ae_optimizer)
+    parser.add_argument('--pretrained_qa_ae_path',
+                        help=f'Path to directory that comprises the pre-trained convnet model (default: "{pretrained_qa_ae_path}").',
+                        type=str, default=pretrained_qa_ae_path)
 
     parsed_args = parser.parse_args()
+
+    parsed_args.model_path = '../trained_models/' + parsed_args.model_name + '/' + str(parsed_args.exp_num)
+    parsed_args.log_dir = parsed_args.model_path + '/log'
+    parsed_args.dataset = '/' + parsed_args.scenario + '.pkl'
 
     return parsed_args
 
@@ -258,10 +284,33 @@ def print_args(parsed_args: argparse.Namespace, spacing: int = 45) -> None:
     """
     print all arguments specified within the parser's Namespace.
     """
-    print(Fore.YELLOW + "Training Arguments Summary:\n")
+    print(Fore.YELLOW + "Training Arguments Summary:\n" + Style.RESET_ALL)
     for key, val in vars(parsed_args).items():
-        print(f"{str(key).ljust(spacing)}:\t{val}" + Style.RESET_ALL)
+        print(Fore.YELLOW + f"{str(key).ljust(spacing)}:\t{val}" + Style.RESET_ALL)
     return None
+
+
+def prepare_model_directory(args: argparse.Namespace):
+    """
+    Creates the directories which will be used to store model parameters, as well as logs of the training process.
+    """
+    # Create Log and Model Directory to save training model
+    if not os.path.exists(args.log_dir):
+        print(Fore.GREEN + f"creating log directory in: {args.log_dir}" + Style.RESET_ALL)
+        os.makedirs(args.log_dir)
+
+    assert os.path.exists(args.model_path), f"The log directory should be contained within the model directory, please verify:\n" \
+                                            f"args.log_dir = {args.log_dir}\n" \
+                                            f"args.model_path = {args.model_path}"
+
+    model_parameters = {"args": args}
+
+    # Save Model Parameters
+    param_file = open(args.model_path + '/model_parameters.pkl', 'wb')
+    pkl.dump(model_parameters, param_file, protocol=2)  # encoding='latin1'
+    param_file.close()
+    with open(args.model_path + '/model_parameters.json', 'w') as f:
+        json.dump(args.__dict__, f)
 
 
 ### MAIN FUNCTION
@@ -272,34 +321,16 @@ if __name__ == '__main__':
 
     # os.environ['TF_ENABLE_AUTO_MIXED_PRECISION'] = '1'
 
+    # Parsing Arguments
     args = parse_args()
-
     print_args(args)
 
     # Enable / Disable GPU
     # if not args.gpu:
     #     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-    # Create Log and Model Directory to save training model
-    args.model_path = '../trained_models/' + args.model_name + "/" + str(args.exp_num)
-    args.log_dir = args.model_path + '/log'
-    if not os.path.exists(args.log_dir):
-        print(Fore.GREEN + f"creating log directory in: {args.log_dir}" + Style.RESET_ALL)
-        os.makedirs(args.log_dir)
-    args.dataset = '/' + args.scenario + '.pkl'
-    model_parameters = {"args": args}
-
-    # Check whether model folder exists, otherwise make directory
-    if not os.path.exists(args.model_path):
-        print(Fore.GREEN + f"creating model folder in: {args.model_path}" + Style.RESET_ALL)
-        os.makedirs(args.model_path)
-
-    # Save Model Parameters
-    param_file = open(args.model_path + '/model_parameters.pkl', 'wb')
-    pkl.dump(model_parameters, param_file, protocol=2)  # encoding='latin1'
-    param_file.close()
-    with open(args.model_path + '/model_parameters.json', 'w') as f:
-        json.dump(args.__dict__, f)
+    # preparing the directories for storing logs and model parameters
+    prepare_model_directory(args)
 
     # Create Datahandler class
     data_prep = dhlstm.DataHandlerLSTM(args)
@@ -343,6 +374,12 @@ if __name__ == '__main__':
         except:
             print("Failed to initialized Convnet or Convnet does not exist")
 
+        # Load Query Agent Past Trajectory autoencoder TODO: check correct implementation
+        try:
+            model.warmstart_query_agent_ae
+        except:
+            print(Fore.RED + "Failed to initialize Query Agent Past Trajectory Autoencoder")
+
         # if the training was interrupted load last training step index
         try:
             initial_step = int(open(args.model_path + "/tf_log", 'r').read().split('\n')[-2]) + 1
@@ -362,14 +399,6 @@ if __name__ == '__main__':
         best_loss = float('inf')
         avg_training_loss = np.ones(100)
 
-        print("DOING SOMETHING OVER HERE:")
-        batch_x, batch_vel, batch_pos, batch_goal, batch_grid, batch_ped_grid, batch_y, batch_pos_target, other_agents_pos, new_epoch = data_prep.getBatch()
-        print(batch_x[0, 0, 0])
-        print()
-        print(batch_vel[0, 0, 0])
-        print()
-        print(batch_pos[0, 0, 0])
-        print("\n\n")
 
         for step in range(initial_step, args.total_training_steps):
             start_time_loop = time.time()
