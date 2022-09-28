@@ -19,17 +19,18 @@ def parse_args():
     """
     Specify the hyperparameters and settings for running the script
     """
+    model_name = "SocialVRNN_AE"
     pretrained_convnet_path = "../trained_models/autoencoder_with_ped"
-    best_ae = 404
+    best_ae = 444000
     pretrained_qa_ae_path = f"../trained_models/PastTrajAE/{best_ae}"
 
     data_path = '../data/'
-    scenario = 'real_world/ewap_dataset/seq_hotel'
+    # scenario = 'real_world/ewap_dataset/seq_hotel'
     # scenario = 'real_world/ewap_dataset/seq_eth'
     # scenario = 'real_world/st'
     # scenario = 'real_world/zara_01'
-    # scenario = 'real_world/zara_02'
-    exp_num = 444004
+    scenario = 'real_world/zara_02'
+    exp_num = 444000
 
     # Hyperparameters
     n_epochs = 2
@@ -42,10 +43,13 @@ def parse_args():
     prev_horizon = 7
 
     # Query Agent input processing
-    # qa_module = "LSTM"      # can be either "LSTM" or TODO: add "AE" and "VAE" to the options once they are implemented.
     query_agent_ae_encoding_layers = [12, 8]
     query_agent_ae_latent_space_dim = 4
     query_agent_ae_optimizer = 'Adam'
+    freeze_qa_ae = False
+
+    # Occupancy grid CNN
+    freeze_grid_cnn = True
 
     rnn_state_size = 32
     rnn_state_size_lstm_grid = 256
@@ -112,7 +116,7 @@ def parse_args():
 
     parser.add_argument('--model_name',
                         help='Path to directory that comprises the model (default="model_name").',
-                        type=str, default="SocialVRNN_AE")
+                        type=str, default=model_name)
     parser.add_argument('--model_path',
                         help='Path to directory to save the model (default=""../trained_models/"+model_name").',
                         type=str, default='../trained_models/')
@@ -251,12 +255,10 @@ def parse_args():
     parser.add_argument('--sy_pos', help='sy_pos', type=float, default=1)
     parser.add_argument('--train_set', help='Percentage of the dataset used for training', type=float,
                         default=train_set)
-    parser.add_argument('--tensorboard_logging', help='Whether to use tensorboard logging capability or not', type=bool,
+    parser.add_argument('--tensorboard_logging', help='Whether to use tensorboard logging capability or not', type=sup.str2bool,
                         default=tensorboard_logging)
 
     # My added options
-    # parser.add_argument('--qa_module', help='Which module to use for processing of the Query Agent past trajectory input. Can either be "LSTM", ', type=str,
-    #                     default=qa_module) #TODO: add "AE" or "VAE" options once they are implemented.
     parser.add_argument('--query_agent_ae_encoding_layers',
                         nargs='+',
                         help='list of integers, which specify the dimensions of the encoding layers of the Query Agent past trajectory autoencoder',
@@ -270,6 +272,12 @@ def parse_args():
     parser.add_argument('--pretrained_qa_ae_path',
                         help=f'Path to directory that comprises the pre-trained convnet model (default: "{pretrained_qa_ae_path}").',
                         type=str, default=pretrained_qa_ae_path)
+    parser.add_argument('--freeze_grid_cnn',
+                        help=f'Whether the weights of the occupancy grid CNN module should be frozen while training.',
+                        type=sup.str2bool, default=freeze_grid_cnn)
+    parser.add_argument('--freeze_qa_ae',
+                        help='whether the query agent autoencoder should have its weights frozen while training.',
+                        type=sup.str2bool, default=freeze_qa_ae)
 
     parsed_args = parser.parse_args()
 
@@ -280,13 +288,13 @@ def parse_args():
     return parsed_args
 
 
-def print_args(parsed_args: argparse.Namespace, spacing: int = 45) -> None:
+def print_args(parsed_args: argparse.Namespace, spacing: int = 40) -> None:
     """
     print all arguments specified within the parser's Namespace.
     """
     print(Fore.YELLOW + "Training Arguments Summary:\n" + Style.RESET_ALL)
     for key, val in vars(parsed_args).items():
-        print(Fore.YELLOW + f"{str(key).ljust(spacing)}:\t{val}" + Style.RESET_ALL)
+        print(Fore.YELLOW + f"{str(key).ljust(spacing)}|\t{val}" + Style.RESET_ALL)
     return None
 
 
@@ -326,8 +334,8 @@ if __name__ == '__main__':
     print_args(args)
 
     # Enable / Disable GPU
-    # if not args.gpu:
-    #     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    if not args.gpu:
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
     # preparing the directories for storing logs and model parameters
     prepare_model_directory(args)
@@ -349,10 +357,10 @@ if __name__ == '__main__':
     # Create Model Graph
     model = NetworkModel(args)
 
-    # # see the trainable variables
-    # print(f"tf.trainable_variables() = {tf.trainable_variables()}")
-    # for var in tf.trainable_variables():
-    #     print(var)
+    # see the trainable variables
+    for var in tf.trainable_variables():
+        print(Fore.YELLOW + f"TRAINABLE VARIABLE OF SOCIAL_VRNN:\t{var}" + Style.RESET_ALL)
+
 
     # TensorFlow CPU and GPU configurations, see:
     # https://liyin2015.medium.com/tensorflow-cpus-and-gpus-configuration-9c223436d4ef
@@ -372,13 +380,20 @@ if __name__ == '__main__':
             if args.warm_start_convnet:
                 model.warmstart_convnet(args, sess)
         except:
-            print("Failed to initialized Convnet or Convnet does not exist")
+            print(Fore.RED + "Failed to initialized Convnet or Convnet does not exist" + Style.RESET_ALL)
+            exit()
 
         # Load Query Agent Past Trajectory autoencoder TODO: check correct implementation
         try:
-            model.warmstart_query_agent_ae
+            # warmstart_query_agent_ae = False
+            if args.model_name == "SocialVRNN_AE" and not args.warmstart_model:
+                model.warmstart_query_agent_ae(args=args, sess=sess)
+            # elif args.model_name == "SocialVRNN_AE" and not warmstart_query_agent_ae:
+            #     model.traj_ae.initialize_random_weights(sess=sess)
         except:
-            print(Fore.RED + "Failed to initialize Query Agent Past Trajectory Autoencoder")
+            print(Fore.RED + "Failed to initialize Query Agent Past Trajectory Autoencoder" + Style.RESET_ALL)
+            exit()
+
 
         # if the training was interrupted load last training step index
         try:
@@ -402,6 +417,21 @@ if __name__ == '__main__':
 
         for step in range(initial_step, args.total_training_steps):
             start_time_loop = time.time()
+
+            # WIPCODE
+            # weight_str = 'auto_encoder/Conv/weights:0'
+            # print(Fore.BLUE + f"{weight_str.ljust(45)}: " +
+            #       str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)) +
+            #       Style.RESET_ALL)
+            # weight_str = 'auto_encoder/Conv2d_transpose_2/weights:0'
+            # print(Fore.BLUE + f"{weight_str.ljust(45)}: " +
+            #       str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)) +
+            #       Style.RESET_ALL)
+            # weight_str = 'query_agent_auto_encoder/encode0/weights:0'
+            # print(Fore.BLUE + f"{weight_str.ljust(45)}: " +
+            #       str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)) +
+            #       Style.RESET_ALL)
+            # WIPCODE
 
             # Get Next Batch of Data
             if res == None:
@@ -492,7 +522,6 @@ if __name__ == '__main__':
                     best_loss = curr_loss
                     print(Fore.LIGHTCYAN_EX + 'Step {}: Saving model under {}'.format(step, save_path))
 
-            step = step + 1
 
         write_summary(training_loss[-1], args)
         full_path = args.model_path + '/final-model.ckpt'

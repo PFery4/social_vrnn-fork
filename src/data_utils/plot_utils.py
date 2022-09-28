@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import os
 import random
@@ -1252,7 +1254,6 @@ def visualize_traintest_batches(data_handler, n_train=10, n_test=10):
 	extracts n_train batches and n_test batches from the data_handler, and viualizes the position and velocity training
 	instances from those batches.
 	"""
-
 	print("PLOTTING TRAIN INSTANCES")
 	for step in range(n_train):
 		_, batch_vel, batch_pos, _, _, _, _, _, _, _ = data_handler.getBatch()
@@ -1279,8 +1280,9 @@ def get_weight_value(session: tf.Session, weight_str: str, n_weights: int = None
 	*This function has been designed to provide an easy debugging check for verification that parameter weights
 	are or are not being updated, depending on the training operations being performed during a session run.
 	"""
-	param_weight = session.run(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, weight_str))[0]
-	param_weight = param_weight.flatten()
+	param_weight_lst = session.run(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, weight_str))
+	assert len(param_weight_lst) == 1
+	param_weight = param_weight_lst[0].flatten()
 	if n_weights is None:
 		n = param_weight.size
 	else:
@@ -1288,25 +1290,43 @@ def get_weight_value(session: tf.Session, weight_str: str, n_weights: int = None
 	weight_list = list(param_weight[:n])
 	return weight_list
 
-def plot_QA_AE_loss_graph(exp_num):
+def plot_QA_AE_loss_graph(exp_num, ax):
 	"""
 	Plots the loss graphs of the Query Agent training process.
 	The results are contained within a 'results.pkl' file, within the experiment run's directory, specified by 'exp_num'
-	(this directory is found under
+	(this directory is found under 'trained_models/PastTrajAE')
 	"""
-	filepath = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+	model_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
 											'../../trained_models/PastTrajAE',
-											str(exp_num), 'results/results.pkl'))
-	assert os.path.exists(filepath), f"Path does not exist:\n{filepath}"
+											str(exp_num)))
+	results_path = os.path.join(model_dir, 'results/results.pkl')
+	assert os.path.exists(results_path), f"Path does not exist:\n{results_path}"
 
-	with open(filepath, 'rb') as file:
+	with open(results_path, 'rb') as file:
 		out_dict = pkl.load(file)
 
-	title_str = f"{exp_num} (trained with: {out_dict['dataset']})"
+	param_path = os.path.join(model_dir, 'parameters.json')
+	with open(param_path, 'r') as file:
+		param_dict = json.load(file)
 
-	pl.plot(list(range(0, out_dict["num_steps"], out_dict["log_freq"])), out_dict["val_losses"],
+	title_str = f"{exp_num} (trained with: {out_dict['dataset']})\n" \
+				f"encoding layers: {param_dict['encoding_layers']}\n" \
+				f"latent space dimensions: {param_dict['latent_space_dimensions']}\n" \
+				f"optimizer: {param_dict['optimizer']}"
+
+	ax.plot(list(range(0, out_dict["num_steps"], out_dict["log_freq"])), out_dict["val_losses"],
 			 label="Validation Loss")
-	pl.plot(list(range(0, out_dict["num_steps"])), out_dict["train_losses"], label="Train Loss")
-	pl.title(title_str)
-	pl.legend()
-	pl.show(block=True)
+	ax.plot(list(range(0, out_dict["num_steps"])), out_dict["train_losses"], label="Train Loss")
+	ax.set_title(title_str, loc="left", ha="left")
+	ax.legend()
+
+def compare_QA_AE_plots(exp_num_list):
+	"""
+	Plots multiple loss graphs of the query agent past trajectory autoencoder, for easy comparison between different
+	setups
+	exp_num_list is a list of ints, which refer to the experiment results to use for plotting.
+	"""
+	fig, axs = pl.subplots(1, len(exp_num_list), sharex='all', sharey='all')
+	for idx, val in enumerate(exp_num_list):
+		plot_QA_AE_loss_graph(val, axs[idx])
+	pl.show()

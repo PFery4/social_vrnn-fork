@@ -19,12 +19,6 @@ class PastTrajAE:
     It is built to work with the input as formatted by the DataHandler class (see in ../data_utils/DataHandlerLSTM.py).
     """
 
-    default_config = {'input_state_dim': 2,
-                      'truncated_backprop_length': 3,
-                      'prev_horizon': 7,
-                      'encoding_layers_dim': [8],
-                      'latent_space_dim': 4,
-                      'optimizer': 'Adam'}
 
     def __init__(self, args: argparse.Namespace):
         """
@@ -36,6 +30,7 @@ class PastTrajAE:
                                                                 decoding layers are built symmetrically to the encoding layers.
             - 'query_agent_ae_latent_space_dim': int        --> dimension used for the latent space embedding layer
             - 'query_agent_ae_optimizer': str               --> can either be 'Adam' or 'RMSProp'
+            - 'pretrained_qa_ae_path': str                  --> the path where the model will be saved
 
         * Although the PastTrajAE does not make use of truncated backpropagation through time (as it is not a recurrent
         module), it is meant to be incorporated within an architecture which does contain recurrent modules,
@@ -44,18 +39,12 @@ class PastTrajAE:
 
         self.scope_name = 'query_agent_auto_encoder'
         # self.id = "AE--" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S") + "--" + uuid.uuid4().hex
-        self.id = args.exp_num
+        # self.id = args.exp_num
+        self.id = os.path.basename(args.pretrained_qa_ae_path)
         self.save_path = "../trained_models/"
         self.model_name = "PastTrajAE"
         self.model_directory = os.path.abspath(os.path.join(self.save_path, self.model_name))
         self.full_save_path = os.path.abspath(os.path.join(self.model_directory, str(self.id)))
-
-        # Checking that the save_path of the model is not already an existing directory
-        # assert not os.path.exists(self.full_save_path), f"PATH ALREADY EXISTS, CANNOT SAVE PAST_TRAJ_AE MODEL:\n" \
-        #                                                 f"{self.full_save_path}"
-        if not os.path.exists(self.full_save_path):
-            print(Fore.GREEN + f"Creating model directory in:\n{self.full_save_path}" + Style.RESET_ALL)
-            os.makedirs(self.full_save_path)
 
         # setting up input dimensions
         self.input_state_dim = args.input_state_dim
@@ -136,9 +125,15 @@ class PastTrajAE:
 
         self.initializer = tf.initialize_variables(self.model_var_list)
 
-        # Save the Model Parameters
-        with open(os.path.join(self.full_save_path, "parameters.json"), 'w') as f:
-            json.dump(self.info_dict(), f)
+        # check if the model directory already exists
+        if not os.path.exists(self.full_save_path):
+            print(Fore.GREEN + f"New Model, creating model directory in:\n{self.full_save_path}" + Style.RESET_ALL)
+            os.makedirs(self.full_save_path)
+            # Save the Model Parameters
+            with open(os.path.join(self.full_save_path, "parameters.json"), 'w') as f:
+                json.dump(self.info_dict(), f)
+
+        assert os.path.exists(self.full_save_path), f"Model directory non existent:\n{self.full_save_path}"
 
     def info_dict(self):
         """
@@ -158,6 +153,7 @@ class PastTrajAE:
         """
         prompts the session to initialize the weights of the architecture
         """
+        print(Fore.YELLOW + "Initializing Past Trajectory Autoencoder with random weights" + Style.RESET_ALL)
         sess.run(self.initializer)
 
 
@@ -237,12 +233,19 @@ class PastTrajAE:
         if load_dir is None:
             load_dir = self.id
         load_path = os.path.join(self.model_directory, str(load_dir))
+        # checking the model we are trying to load exists
         assert os.path.exists(load_path), f"ERROR WHILE LOADING QA AE MODEL:\n{load_path}\nDOES NOT EXIST"
+
+        # checking the model we are trying to load has the same hyperparams as self
+        with open(os.path.join(load_path, 'parameters.json')) as f:
+            param_json = json.load(f)
+        assert self.info_dict() == param_json, f"Non-identical models:\nSELF:\n{self.info_dict()}\nTARGET:\n{param_json}"
+
         ckpt_ae = tf.train.get_checkpoint_state(load_path)
         print(f"Restoring PastTraj AE: {ckpt_ae.model_checkpoint_path}")
         self.saver.restore(sess, ckpt_ae.model_checkpoint_path)
 
-def trainAE(model: PastTrajAE, data_prep: dhlstm.DataHandlerLSTM, sess: tf.Session, num_steps=20000, log_freq=100):
+def trainAE(model: PastTrajAE, data_prep: dhlstm.DataHandlerLSTM, sess: tf.Session, num_steps=10000, log_freq=100):
 
     train_losses = []
     val_losses = []
@@ -292,3 +295,32 @@ def trainAE(model: PastTrajAE, data_prep: dhlstm.DataHandlerLSTM, sess: tf.Sessi
                    "dataset": os.path.basename(data_prep.args.scenario)}
 
     return output_dict
+
+def pasttraj_ae_from_model_directory(sess, model_id):
+    """
+    Takes a tf Session and a past trajectory autoencoder id (which specifies the folder to load the model from within
+    '../trained_models/PastTrajAE'), loads the parameters from this model into the session.
+
+    returns: a PastTrajAE model, ready for further use.
+    """
+    save_path = "../trained_models/PastTrajAE"
+    model_directory = os.path.abspath(os.path.join(save_path, str(model_id)))
+
+    assert os.path.exists(model_directory), f"Directory does not exist:\n{model_directory}"
+
+    with open(os.path.join(model_directory, "parameters.json")) as f:
+        param_dict = json.load(f)
+
+    # json dictionary and argspace do not have the exact same key names, this issue is resolved here.
+    param_dict["input_state_dim"] = param_dict["input_state_dimensions"]
+    param_dict["query_agent_ae_encoding_layers"] = param_dict["encoding_layers"]
+    param_dict["query_agent_ae_latent_space_dim"] = param_dict["latent_space_dimensions"]
+    param_dict["query_agent_ae_optimizer"] = param_dict["optimizer"]
+    param_dict["pretrained_qa_ae_path"] = os.path.join(save_path, str(model_id))
+
+    args = argparse.Namespace(**param_dict)
+
+    model = PastTrajAE(args=args)
+    model.load_model(sess=sess, load_dir=model_id)
+    return model
+
