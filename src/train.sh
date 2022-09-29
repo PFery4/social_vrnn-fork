@@ -35,15 +35,15 @@
 # python3 train_WIP.py --model_name SocialVRNN --exp_num 4001 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
 # python3 train_WIP.py --model_name SocialVRNN_AE --exp_num 4001 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
 # python3 train_WIP.py --model_name SocialVRNN_AE --exp_num 9000 --others_info relative --total_training_steps 20000 --print_freq 40 --warmstart_model true;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_hotel' --exp_num 4000 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_hotel' --exp_num 4001 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_eth' --exp_num 4002 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_eth' --exp_num 4003 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/st' --exp_num 4004 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/st' --exp_num 4005 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 4006 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 4007 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_02' --exp_num 4008 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
+#python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_hotel' --exp_num 4000 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
+#python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_hotel' --exp_num 4001 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
+#python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_eth' --exp_num 4002 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
+#python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_eth' --exp_num 4003 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
+#python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/st' --exp_num 4004 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
+#python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/st' --exp_num 4005 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
+#python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 4006 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
+#python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 4007 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
+#python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_02' --exp_num 4008 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
 python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_02' --exp_num 4009 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
 
 

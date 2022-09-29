@@ -288,16 +288,6 @@ def parse_args():
     return parsed_args
 
 
-def print_args(parsed_args: argparse.Namespace, spacing: int = 40) -> None:
-    """
-    print all arguments specified within the parser's Namespace.
-    """
-    print(Fore.YELLOW + "Training Arguments Summary:\n" + Style.RESET_ALL)
-    for key, val in vars(parsed_args).items():
-        print(Fore.YELLOW + f"{str(key).ljust(spacing)}|\t{val}" + Style.RESET_ALL)
-    return None
-
-
 def prepare_model_directory(args: argparse.Namespace):
     """
     Creates the directories which will be used to store model parameters, as well as logs of the training process.
