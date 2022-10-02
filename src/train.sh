@@ -44,6 +44,8 @@
 #python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 4006 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
 #python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 4007 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
 #python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_02' --exp_num 4008 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_02' --exp_num 4009 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
+#python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_02' --exp_num 4009 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
 
 
+# python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 4444 --others_info relative --total_training_steps 800 --print_freq 20;
+python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 5555 --others_info relative --total_training_steps 800 --print_freq 20;

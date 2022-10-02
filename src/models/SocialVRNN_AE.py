@@ -722,7 +722,7 @@ class NetworkModel:
         ckpt_conv = tf.train.get_checkpoint_state(args.pretrained_convnet_path)
         if ckpt_conv == None:
             print(Fore.RED + "Error. Convnet not found..." + Style.RESET_ALL)
-            exit()
+            sys.exit()
         else:
             print(Fore.YELLOW + f'Restoring convnet:\n{ckpt_conv.model_checkpoint_path}' + Style.RESET_ALL)
             self.convnet_saver.restore(sess, ckpt_conv.model_checkpoint_path)

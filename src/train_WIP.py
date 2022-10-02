@@ -11,6 +11,7 @@ import time
 from multiprocessing.pool import ThreadPool
 from colorama import Fore, Style
 import tensorflow as tf
+import src.data_utils.MultiDatasetsDataHandlerLSTM as multidhlstm
 
 
 ### DEFINITIONS
@@ -128,19 +129,19 @@ def parse_args():
     #                     type=str, default=r"\log")        # NOT NEEDED AS IT IS BEING ALTERED AFTER PARSING
     parser.add_argument('--scenario', help='Scenario of the dataset (default="").',
                         type=str, default=scenario)
-    parser.add_argument('--real_world_data', help='Real world dataset (default=True).', type=sup.str2bool,
+    parser.add_argument('--real_world_data', help=f'Real world dataset (default={real_world_data}).', type=sup.str2bool,
                         default=real_world_data)
     parser.add_argument('--data_path', help='Path to directory that saves pickle data (default=" ").', type=str,
                         default=data_path)
-    parser.add_argument('--dataset', help='Dataset pkl file', type=str,
-                        default=scenario + '.pkl')
+    # parser.add_argument('--dataset', help='Dataset pkl file', type=str,
+    #                     default=scenario + '.pkl')        # DOES NOT SEEM TO BE USED ANYWHERE
     parser.add_argument('--data_handler', help='Datahandler class needed to load the data', type=str,
                         default='LSTM')
     parser.add_argument('--warmstart_model', help='Restore from pretained model (default=False).', type=bool,
                         default=warmstart_model)
     parser.add_argument('--warm_start_convnet', help='Restore from pretained convnet model (default=False).', type=bool,
                         default=warm_start_convnet)
-    parser.add_argument('--dt', help='Data samplig time (default=0.3).', type=float,
+    parser.add_argument('--dt', help='Data sampling time (default=0.3).', type=float,
                         default=dt)
     parser.add_argument('--n_epochs', help='Number of epochs (default=10000).', type=int, default=n_epochs)
     parser.add_argument('--total_training_steps', help='Number of training steps (default=20000).', type=int,
@@ -283,7 +284,7 @@ def parse_args():
 
     parsed_args.model_path = '../trained_models/' + parsed_args.model_name + '/' + str(parsed_args.exp_num)
     parsed_args.log_dir = parsed_args.model_path + '/log'
-    parsed_args.dataset = '/' + parsed_args.scenario + '.pkl'
+    # parsed_args.dataset = '/' + parsed_args.scenario + '.pkl'     # DOES NOT SEEM TO BE USED ANYWHERE
 
     return parsed_args
 
@@ -308,7 +309,7 @@ def prepare_model_directory(args: argparse.Namespace):
     pkl.dump(model_parameters, param_file, protocol=2)  # encoding='latin1'
     param_file.close()
     with open(args.model_path + '/model_parameters.json', 'w') as f:
-        json.dump(args.__dict__, f)
+        json.dump(args.__dict__, f, indent=0)
 
 
 ### MAIN FUNCTION
@@ -330,15 +331,27 @@ if __name__ == '__main__':
     # preparing the directories for storing logs and model parameters
     prepare_model_directory(args)
 
-    # Create Datahandler class
-    data_prep = dhlstm.DataHandlerLSTM(args)
-    # Only used to create a map from png
-    # Make sure these parameters are correct otherwise it will fail training and plotting the results
-    map_args = {"file_name": 'map.png',
-                "resolution": 0.1,
-                "map_size": np.array([30., 6.])}
-    # Load dataset
-    data_prep.processData(**map_args)
+    dataset_list = ['ewap_dataset/seq_hotel', 'ewap_dataset/seq_eth', 'st', 'zara_01', 'zara_02']
+    dataset_list = [os.path.join("real_world", dataset) for dataset in dataset_list]
+    dataset_list.remove(args.scenario)
+    print(dataset_list)
+    multi_data_prep = multidhlstm.MultiDataHandler(args=args, datasets=dataset_list)
+
+    # # Create Datahandler class
+    # data_prep = dhlstm.DataHandlerLSTM(args)
+    # # Only used to create a map from png
+    # # Make sure these parameters are correct otherwise it will fail training and plotting the results
+    # map_args = {"file_name": 'map.png',
+    #             "resolution": 0.1,
+    #             "map_size": np.array([30., 6.])}
+    # # Load dataset
+    # data_prep.processData(**map_args)
+    #
+    # # WIP CODE
+    # print("DATA_PREP INFO")
+    # for k, v in data_prep.__dict__.items():
+    #     print(f"{k}: {v}")
+    # # WIP CODE
 
     # Import Deep Learning model
     module = importlib.import_module("src.models." + args.model_name)
@@ -407,6 +420,12 @@ if __name__ == '__main__':
 
         for step in range(initial_step, args.total_training_steps):
             start_time_loop = time.time()
+
+
+            data_prep_idx = multi_data_prep.datahandler_idxs[step % len(multi_data_prep.datahandler_idxs)]
+            data_prep = multi_data_prep.dataHandlers[data_prep_idx]
+
+            print(f"SAMPLING FROM DATASET: {data_prep_idx}, {data_prep.scenario}")
 
             # WIPCODE
             # weight_str = 'auto_encoder/Conv/weights:0'

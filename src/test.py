@@ -1,6 +1,8 @@
 import sys
 import os
 
+import train
+
 sys.path.append('../')
 import numpy as np
 import argparse
@@ -25,6 +27,7 @@ from src.data_utils.Performance import *
 from src.data_utils.utils import *
 from src.data_utils.Recorder import Recorder as rec
 import tensorflow as tf
+import src.train_WIP
 
 
 # Model directories
@@ -57,9 +60,9 @@ def parse_args():
                         default=False)
     parser.add_argument('--gpu', help='Enable GPU training.', type=sup.str2bool,
                         default=False)
-    parser.add_argument('--freeze_other_agents', help='FReeze other agents.', type=sup.str2bool,
+    parser.add_argument('--freeze_other_agents', help='Freeze other agents.', type=sup.str2bool,
                         default=False)
-    parser.add_argument('--unit_testing', help='Run  Unit Tests.', type=sup.str2bool,
+    parser.add_argument('--unit_testing', help='Run Unit Tests.', type=sup.str2bool,
                         default=False)
     args = parser.parse_args()
 
@@ -82,16 +85,23 @@ if __name__ == '__main__':
     print("Loading data from: '{}'".format(model_path))
     with open(model_path + '/model_parameters.pkl', 'rb') as file:
         model_parameters = pkl.load(file, encoding='latin1')
+
+    print(type(model_parameters["args"]))
+
     args = model_parameters["args"]
-    args.model_name = "SocialVRNN"
-    args.model_path = '../trained_models/' + args.model_name + "/" + str(args.exp_num)
-    args.log_dir = args.model_path + '/log'
+
 
     print_args(args)
-    print(zblu)
 
-    with open(args.model_path + '/model_parameters.json', 'w') as f:
-        json.dump(args.__dict__, f)
+    # The following modifications are no longer necessary, delete this once a full run of
+    # train + test has been shown to be successful.
+    #
+    # args.model_name = "SocialVRNN"
+    # args.model_path = '../trained_models/' + args.model_name + "/" + str(args.exp_num)
+    # args.log_dir = args.model_path + '/log'
+
+    # with open(args.model_path + '/model_parameters.json', 'w') as f:
+    #     json.dump(args.__dict__, f)
 
     # change some args because we are doing inference
     truncated_backprop_length = args.truncated_backprop_length
@@ -102,7 +112,7 @@ if __name__ == '__main__':
     training_scenario = args.scenario
     args.scenario = test_args.scenario
     args.real_world_data = test_args.real_world_data
-    args.dataset = '/' + args.scenario + '.pkl'
+    # args.dataset = '/' + args.scenario + '.pkl'   # taken care of by parse_arg function in train script
     data_prep = dhlstm.DataHandlerLSTM(args)
 
     # Only used to create a map from png
@@ -150,7 +160,10 @@ if __name__ == '__main__':
     with tf.Session(config=config) as sess:
         model.warmstart_model(args, sess)
         try:
-            model.warmstart_convnet(args, sess)
+            if args.freeze_grid_cnn:
+                model.warmstart_convnet(args, sess)
+            else:
+                print("No warmstart of convnet: Model has been trained without CNN frozen weights")
         except:
             print("No model.warmstart_convnet(args, sess)")
 
