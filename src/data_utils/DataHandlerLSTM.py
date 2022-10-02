@@ -30,6 +30,7 @@ class DataHandlerLSTM():
 	def __init__(self, args):
 
 		self.data_path = args.data_path
+		self.scenario = args.scenario
 		self.batch_size = args.batch_size
 		self.tbpl = args.truncated_backprop_length
 		self.prev_horizon = args.prev_horizon
@@ -45,15 +46,16 @@ class DataHandlerLSTM():
 		self.rotated_grid = args.rotated_grid
 		self.multi_pedestrian = True
 		self.pedestrian_radius = args.pedestrian_radius
-		self.min_length_trajectory = self.tbpl + 1 + self.output_sequence_length + args.prev_horizon
+		self.min_length_trajectory = self.tbpl + 1 + self.output_sequence_length + self.prev_horizon
 		self.pedestrian_vector_dim = args.pedestrian_vector_dim
 		self.max_range_ped_grid = args.max_range_ped_grid
 		self.dt = args.dt
-		self.n_mixture = args.n_mixtures
+		self.n_mixtures = args.n_mixtures
 		self.output_pred_state_dim = args.output_pred_state_dim
-		self.args = args
+		# self.args = args				# NO LONGER REQUIRED
 		self.real_world_data = args.real_world_data
 		# Normalization constants
+		self.normalize_data = args.normalize_data
 		self.norm_const_x = 1.0
 		self.norm_const_y = 1.0
 		self.norm_const_heading = 1.0
@@ -93,10 +95,12 @@ class DataHandlerLSTM():
 
 		# Training variables
 		self.sequence_reset = np.ones([self.batch_size])  # indicates whether sequences are reset (hidden state of LSTMs needs to be reset accordingly)
-		self.sequence_idx = np.zeros([self.batch_size])+self.args.prev_horizon
+		self.sequence_idx = np.zeros([self.batch_size])+self.prev_horizon
 
+		self.others_info = args.others_info
+		self.n_other_agents = args.n_other_agents
 		# Batch with info about other agents
-		if "future" in self.args.others_info:
+		if "future" in self.others_info:
 			self.batch_vel = np.zeros(
 				[self.batch_size, self.tbpl, self.input_state_dim * self.prediction_horizon])  # data fed for training
 		else:
@@ -105,19 +109,19 @@ class DataHandlerLSTM():
 		self.batch_grid = np.zeros([self.batch_size, self.tbpl,
 																int(np.ceil(self.submap_width / self.submap_resolution)),
 																int(np.ceil(self.submap_height / self.submap_resolution))])
-		if self.args.others_info == "relative":
-			self.pedestrian_grid = np.zeros([self.batch_size, self.tbpl, self.pedestrian_vector_dim*self.args.n_other_agents])
-			self.val_pedestrian_grid = np.zeros([self.batch_size, self.tbpl, self.pedestrian_vector_dim*self.args.n_other_agents])
-		elif "sequence" in self.args.others_info:
+		if self.others_info == "relative":
+			self.pedestrian_grid = np.zeros([self.batch_size, self.tbpl, self.pedestrian_vector_dim*self.n_other_agents])
+			self.val_pedestrian_grid = np.zeros([self.batch_size, self.tbpl, self.pedestrian_vector_dim*self.n_other_agents])
+		elif "sequence" in self.others_info:
 			self.pedestrian_grid = np.zeros(
-				[self.batch_size, self.tbpl, self.args.n_other_agents, self.pedestrian_vector_dim*self.prediction_horizon])
-		elif self.args.others_info == "prev_sequence":
+				[self.batch_size, self.tbpl, self.n_other_agents, self.pedestrian_vector_dim*self.prediction_horizon])
+		elif self.others_info == "prev_sequence":
 			self.pedestrian_grid = np.zeros(
-				[self.batch_size, self.tbpl, self.args.n_other_agents, self.pedestrian_vector_dim*(self.prev_horizon + 1)])
-		elif self.args.others_info == "sequence2":
+				[self.batch_size, self.tbpl, self.n_other_agents, self.pedestrian_vector_dim*(self.prev_horizon + 1)])
+		elif self.others_info == "sequence2":
 			self.pedestrian_grid = np.zeros(
-				[self.batch_size, self.tbpl, self.args.n_other_agents, self.prediction_horizon,self.pedestrian_vector_dim])
-		elif self.args.others_info == "ped_grid":
+				[self.batch_size, self.tbpl, self.n_other_agents, self.prediction_horizon,self.pedestrian_vector_dim])
+		elif self.others_info == "ped_grid":
 			self.pedestrian_grid = np.zeros([self.batch_size, self.tbpl,
 			                            int(np.ceil(self.submap_width / self.submap_resolution)),
 			                            int(np.ceil(self.submap_height / self.submap_resolution))])
@@ -133,7 +137,7 @@ class DataHandlerLSTM():
 
 		# Validation variables
 		self.val_sequence_reset = np.ones([self.batch_size])  # indicates whether sequences are reset (hidden state of LSTMs needs to be reset accordingly)
-		self.val_sequence_idx = np.zeros([self.batch_size]) + self.args.prev_horizon
+		self.val_sequence_idx = np.zeros([self.batch_size]) + self.prev_horizon
 		# Batch with current query-agent velocities
 		self.val_batch_vel = np.zeros([self.batch_size, self.tbpl, self.input_state_dim * (self.prev_horizon + 1)])
 		# Batch with query-agent current velocities and positions
@@ -155,7 +159,7 @@ class DataHandlerLSTM():
 		# Batch with quer-agent next positions
 		self.val_batch_pos_target = np.zeros([self.batch_size, self.tbpl, 2 * self.output_sequence_length])
 
-	def addAgentTrajectoriesToSet(self,agent_container,trajectory_set, id):
+	def addAgentTrajectoriesToSet(self, agent_container, trajectory_set, id):
 		"""
 		Goes through all trajectories of agent and adds them to the member set if they fulfill the criteria.
 		For all the time steps within the trajectory it also computes the positions of the other agents at that
@@ -190,79 +194,80 @@ class DataHandlerLSTM():
 		"""
 		Processes the simulation or real-world data, depending on the usage.
 		"""
-		data_pickle = self.args.data_path + self.args.scenario + "/data" + str(self.args.prediction_horizon) + "_" + str(
-			self.args.truncated_backprop_length)+ "_" + str(
-			self.args.prev_horizon) + ".pickle"
+		data_pickle = self.data_path + self.scenario + "/data" + str(self.prediction_horizon) + "_" + str(
+			self.tbpl)+ "_" + str(
+			self.prev_horizon) + ".pickle"
 		if os.path.isfile(data_pickle):
 			self.loadTrajectoryData(data_pickle)
 		else:
 			if "real_world" in data_pickle:
 				print("Processing real-world data.")
 				self._process_real_data_()
-			elif "simulation" in data_pickle:
-				print("Processing simulation data.")
-				self._process_simulation_data_(**kwargs)
-			else:
-				print("Processing gym data.")
-				self._process_gym_data_(**kwargs)
+			# elif "simulation" in data_pickle: 	# !!! --> not encountered
+			# 	print("Processing simulation data.")
+			# 	self._process_simulation_data_(**kwargs)
+			# else:
+			# 	print("Processing gym data.")
+			# 	self._process_gym_data_(**kwargs)
 
 			self.saveTrajectoryData(data_pickle)
 
-	def _process_gym_data_(self, **kwargs):
-		"""
-		Process data generated with gym-collision-avoidance simulator
-		"""
-		print("Loading data from: '{}'".format(self.args.data_path + self.args.dataset))
-
-		self.load_map(**kwargs)
-
-		self.file = open(self.args.data_path + self.args.dataset, 'rb')
-		if sys.version_info[0] < 3:
-			tmp_self = pkl.load(self.file)
-		else:
-			tmp_self = pkl.load(self.file, encoding='latin1')
-
-		# Iterate through the data and fill the register
-		timestamp = 0.0
-		for traj_id in range(len(tmp_self)):
-			traj = tmp_self[traj_id]
-			for t_id in range(len(traj)):
-				id = 0 + traj_id
-				# TODO: GET TIME VECTOR FROM SIMULATOR
-				timestamp = traj[t_id]["time"]
-				pose = np.zeros([1, 3])
-				vel = np.zeros([1, 3])
-				pose[:, 0:2] = traj[t_id]["pedestrian_state"]["position"]
-				vel[:, 0:2] = traj[t_id]["pedestrian_state"]["velocity"]
-				goal = traj[t_id]["pedestrian_goal_position"]
-
-				self.agent_container.addDataSample(id, timestamp, pose, vel, goal)
-
-		# Set the initial indices for agent trajectories (which trajectory will be returned when queried)
-		self.agent_traj_idx = [0] * self.agent_container.getNumberOfAgents()
-
-		# Subsample trajectories (longer discretization time) from dt=0.1 to dt=0.3
-		for id in self.agent_container.getAgentIDs():
-			for traj in self.agent_container.getAgentTrajectories(id):
-				traj.subsample(int(self.args.dt * 10))
-
-		# Put all the trajectories in the trajectory set and randomize
-		for id in self.agent_container.getAgentIDs():
-			print("Processing agent {} / {}".format(id, self.agent_container.getNumberOfAgents()))
-			# Adds trajectory if bigger than a minimum length and maximum size
-			self.addAgentTrajectoriesToSet(self.agent_container, self.trajectory_set, id)
-
-		self.compute_min_max_values()
+	# !!! --> This Method is left commented out because the function is not used in our purposes
+	# def _process_gym_data_(self, **kwargs):
+	# 	"""
+	# 	Process data generated with gym-collision-avoidance simulator
+	# 	"""
+	# 	print("Loading data from: '{}'".format(self.args.data_path + self.args.dataset))
+	#
+	# 	self.load_map(**kwargs)
+	#
+	# 	self.file = open(self.args.data_path + self.args.dataset, 'rb')
+	# 	if sys.version_info[0] < 3:
+	# 		tmp_self = pkl.load(self.file)
+	# 	else:
+	# 		tmp_self = pkl.load(self.file, encoding='latin1')
+	#
+	# 	# Iterate through the data and fill the register
+	# 	timestamp = 0.0
+	# 	for traj_id in range(len(tmp_self)):
+	# 		traj = tmp_self[traj_id]
+	# 		for t_id in range(len(traj)):
+	# 			id = 0 + traj_id
+	# 			# TODO: GET TIME VECTOR FROM SIMULATOR
+	# 			timestamp = traj[t_id]["time"]
+	# 			pose = np.zeros([1, 3])
+	# 			vel = np.zeros([1, 3])
+	# 			pose[:, 0:2] = traj[t_id]["pedestrian_state"]["position"]
+	# 			vel[:, 0:2] = traj[t_id]["pedestrian_state"]["velocity"]
+	# 			goal = traj[t_id]["pedestrian_goal_position"]
+	#
+	# 			self.agent_container.addDataSample(id, timestamp, pose, vel, goal)
+	#
+	# 	# Set the initial indices for agent trajectories (which trajectory will be returned when queried)
+	# 	self.agent_traj_idx = [0] * self.agent_container.getNumberOfAgents()
+	#
+	# 	# Subsample trajectories (longer discretization time) from dt=0.1 to dt=0.3
+	# 	for id in self.agent_container.getAgentIDs():
+	# 		for traj in self.agent_container.getAgentTrajectories(id):
+	# 			traj.subsample(int(self.args.dt * 10))
+	#
+	# 	# Put all the trajectories in the trajectory set and randomize
+	# 	for id in self.agent_container.getAgentIDs():
+	# 		print("Processing agent {} / {}".format(id, self.agent_container.getNumberOfAgents()))
+	# 		# Adds trajectory if bigger than a minimum length and maximum size
+	# 		self.addAgentTrajectoriesToSet(self.agent_container, self.trajectory_set, id)
+	#
+	# 	self.compute_min_max_values()
 
 	def load_map(self,**kwargs):
 		print("Extracting the occupancy grid ...")
 		# Occupancy grid data
 
-		if not os.path.isfile(self.data_path+self.args.scenario + '/map.npy'):
+		if not os.path.isfile(self.data_path+self.scenario + '/map.npy'):
 			print("Creating map from png ...")
-			sup.create_map_from_png(data_path=self.args.data_path+self.args.scenario,**kwargs)
+			sup.create_map_from_png(data_path=self.data_path+self.scenario,**kwargs)
 
-		map_data = np.load(os.path.join(self.data_path+self.args.scenario, 'map.npy'), encoding='latin1', allow_pickle=True)
+		map_data = np.load(os.path.join(self.data_path+self.scenario, 'map.npy'), encoding='latin1', allow_pickle=True)
 		self.agent_container.occupancy_grid.gridmap = map_data.item(0)['Map']  # occupancy values of cells
 		self.agent_container.occupancy_grid.resolution = map_data.item(0)['Resolution']  # map resolution in [m / cell]
 		self.agent_container.occupancy_grid.map_size = map_data.item(0)['Size']  # map size in [m]
@@ -274,55 +279,56 @@ class DataHandlerLSTM():
 				if self.agent_container.occupancy_grid.gridmap[ii, jj] == -1:
 					self.agent_container.occupancy_grid.gridmap[ii, jj] = 0.0
 
-	def _process_simulation_data_(self, **kwargs):
-		"""
-		Import the data from the log file stored in the directory of data_path.
-		This method brings all the data into a suitable format for training.
-		"""
-		self.load_map(**kwargs)
-		# Pedestrian data
-		# [id, timestep (s), timestep (ns), pos x, pos y, yaw, vel x, vel y, omega, goal x, goal y]
-		pedestrian_data = np.genfromtxt(os.path.join(self.data_path+self.args.scenario, 'total_log.csv'), delimiter=",")[1:, :]
-
-		# Iterate through the data and fill the register
-		for sample_idx in range(pedestrian_data.shape[0]):
-			if pedestrian_data[sample_idx, 0] != -1:
-				id = pedestrian_data[sample_idx, 0]
-				timestamp = np.round(pedestrian_data[sample_idx, 1],1)# + pedestrian_data[sample_idx, 2] * 1e-9  # time in seconds
-				pose = np.zeros([1,3])
-				vel = np.zeros([1,3])
-				pose[:,0:2] = np.true_divide(pedestrian_data[sample_idx, 3:5], np.array([self.norm_const_x, self.norm_const_y]))
-				vel[:,0:2] = np.true_divide(pedestrian_data[sample_idx, 5:7], np.array([self.norm_const_vx, self.norm_const_vy]))
-				goal = np.true_divide(pedestrian_data[sample_idx, 7:], np.array([self.norm_const_x, self.norm_const_y]))
-
-				self.agent_container.addDataSample(id, timestamp, pose, vel, goal)
-
-		# Set the initial indices for agent trajectories (which trajectory will be returned when queried)
-		self.agent_traj_idx = [0] * self.agent_container.getNumberOfAgents()
-
-#     for id in self.agent_container.getAgentIDs():
-#       for traj in self.agent_container.getAgentTrajectories(id):
-#         if len(traj) > self.min_length_trajectory:
-#           traj.smoothenTrajectory(dt=self.dt)
-
-		# Subsample trajectories (longer discretization time) from dt=0.1 to dt=0.3
-		for id in self.agent_container.getAgentIDs():
-			for traj in self.agent_container.getAgentTrajectories(id):
-				traj.subsample(int(self.args.dt*10))
-
-		# Reconstruct interpolators since they were not pickled with the rest of the trajectory
-		for id in self.agent_container.getAgentIDs():
-			for traj_idx, traj in enumerate(self.agent_container.getAgentTrajectories(id)):
-				if len(traj) > self.min_length_trajectory:
-					traj.updateInterpolators()
-
-		# Put all the trajectories in the trajectory set and randomize
-		for id in self.agent_container.getAgentIDs():
-			print("Processing agent {} / {}".format(id, self.agent_container.getNumberOfAgents()))
-			# Adds trajectory if bigger than a minimum length and maximum size
-			self.addAgentTrajectoriesToSet(self.agent_container,self.trajectory_set,id)
-
-		self.compute_min_max_values()
+	# !!! --> This Method is left commented out because the function is not used in our purposes
+# 	def _process_simulation_data_(self, **kwargs):
+# 		"""
+# 		Import the data from the log file stored in the directory of data_path.
+# 		This method brings all the data into a suitable format for training.
+# 		"""
+# 		self.load_map(**kwargs)
+# 		# Pedestrian data
+# 		# [id, timestep (s), timestep (ns), pos x, pos y, yaw, vel x, vel y, omega, goal x, goal y]
+# 		pedestrian_data = np.genfromtxt(os.path.join(self.data_path+self.args.scenario, 'total_log.csv'), delimiter=",")[1:, :]
+#
+# 		# Iterate through the data and fill the register
+# 		for sample_idx in range(pedestrian_data.shape[0]):
+# 			if pedestrian_data[sample_idx, 0] != -1:
+# 				id = pedestrian_data[sample_idx, 0]
+# 				timestamp = np.round(pedestrian_data[sample_idx, 1],1)# + pedestrian_data[sample_idx, 2] * 1e-9  # time in seconds
+# 				pose = np.zeros([1,3])
+# 				vel = np.zeros([1,3])
+# 				pose[:,0:2] = np.true_divide(pedestrian_data[sample_idx, 3:5], np.array([self.norm_const_x, self.norm_const_y]))
+# 				vel[:,0:2] = np.true_divide(pedestrian_data[sample_idx, 5:7], np.array([self.norm_const_vx, self.norm_const_vy]))
+# 				goal = np.true_divide(pedestrian_data[sample_idx, 7:], np.array([self.norm_const_x, self.norm_const_y]))
+#
+# 				self.agent_container.addDataSample(id, timestamp, pose, vel, goal)
+#
+# 		# Set the initial indices for agent trajectories (which trajectory will be returned when queried)
+# 		self.agent_traj_idx = [0] * self.agent_container.getNumberOfAgents()
+#
+# #     for id in self.agent_container.getAgentIDs():
+# #       for traj in self.agent_container.getAgentTrajectories(id):
+# #         if len(traj) > self.min_length_trajectory:
+# #           traj.smoothenTrajectory(dt=self.dt)
+#
+# 		# Subsample trajectories (longer discretization time) from dt=0.1 to dt=0.3
+# 		for id in self.agent_container.getAgentIDs():
+# 			for traj in self.agent_container.getAgentTrajectories(id):
+# 				traj.subsample(int(self.args.dt*10))
+#
+# 		# Reconstruct interpolators since they were not pickled with the rest of the trajectory
+# 		for id in self.agent_container.getAgentIDs():
+# 			for traj_idx, traj in enumerate(self.agent_container.getAgentTrajectories(id)):
+# 				if len(traj) > self.min_length_trajectory:
+# 					traj.updateInterpolators()
+#
+# 		# Put all the trajectories in the trajectory set and randomize
+# 		for id in self.agent_container.getAgentIDs():
+# 			print("Processing agent {} / {}".format(id, self.agent_container.getNumberOfAgents()))
+# 			# Adds trajectory if bigger than a minimum length and maximum size
+# 			self.addAgentTrajectoriesToSet(self.agent_container,self.trajectory_set,id)
+#
+# 		self.compute_min_max_values()
 
 	def compute_min_max_values(self):
 		for traj_id in range(len(self.trajectory_set)):
@@ -330,39 +336,39 @@ class DataHandlerLSTM():
 				self.trajectory_set[traj_id][1].vel_vec[t_id, :2] = (self.trajectory_set[traj_id][1].pose_vec[t_id, :2] -
 				                                                     self.trajectory_set[traj_id][1].pose_vec[t_id - 1,
 				                                                     :2]) / self.dt
-				self.min_pos_x = min(self.min_pos_x,self.trajectory_set[traj_id][1].pose_vec[t_id,0])
+				self.min_pos_x = min(self.min_pos_x, self.trajectory_set[traj_id][1].pose_vec[t_id,0])
 				self.min_pos_y = min(self.min_pos_y, self.trajectory_set[traj_id][1].pose_vec[t_id, 1])
 				self.max_pos_x = max(self.max_pos_x, self.trajectory_set[traj_id][1].pose_vec[t_id, 0])
 				self.max_pos_y = max(self.max_pos_y, self.trajectory_set[traj_id][1].pose_vec[t_id, 1])
-				self.min_vel_x = min(self.min_vel_x,self.trajectory_set[traj_id][1].vel_vec[t_id,0])
+				self.min_vel_x = min(self.min_vel_x, self.trajectory_set[traj_id][1].vel_vec[t_id,0])
 				self.min_vel_y = min(self.min_vel_y, self.trajectory_set[traj_id][1].vel_vec[t_id, 1])
 				self.max_vel_x = max(self.max_vel_x, self.trajectory_set[traj_id][1].vel_vec[t_id, 0])
 				self.max_vel_y = max(self.max_vel_y, self.trajectory_set[traj_id][1].vel_vec[t_id, 1])
 
 		self.calc_scale()
 
-		self.args.min_pos_x = self.min_pos_x
-		self.args.min_pos_y = self.min_pos_y
-		self.args.max_pos_x = self.max_pos_x
-		self.args.max_pos_y = self.max_pos_y
-		self.args.min_vel_x = self.min_vel_x
-		self.args.min_vel_y = self.min_vel_y
-		self.args.max_vel_x = self.max_vel_x
-		self.args.max_vel_y = self.max_vel_y
-		self.args.sx_vel = self.sx_vel
-		self.args.sy_vel = self.sy_vel
-		self.args.sx_pos = self.sx_pos
-		self.args.sy_pos = self.sy_pos
+		# self.args.min_pos_x = self.min_pos_x
+		# self.args.min_pos_y = self.min_pos_y
+		# self.args.max_pos_x = self.max_pos_x
+		# self.args.max_pos_y = self.max_pos_y
+		# self.args.min_vel_x = self.min_vel_x
+		# self.args.min_vel_y = self.min_vel_y
+		# self.args.max_vel_x = self.max_vel_x
+		# self.args.max_vel_y = self.max_vel_y
+		# self.args.sx_vel = self.sx_vel
+		# self.args.sy_vel = self.sy_vel
+		# self.args.sx_pos = self.sx_pos
+		# self.args.sy_pos = self.sy_pos
 
 	def unit_test_data_(self,map_args):
 			"""
 			Generates predefined trajectories to analyse the interaction
 			"""
-			if not os.path.isfile(self.data_path + self.args.scenario + '/unit_map.npy'):
+			if not os.path.isfile(self.data_path + self.scenario + '/unit_map.npy'):
 				print("Creating unit map from png ...")
-				sup.create_map_from_png(data_path=self.args.data_path + self.args.scenario, **map_args)
+				sup.create_map_from_png(data_path=self.data_path + self.scenario, **map_args)
 
-			map_data = np.load(os.path.join(self.data_path + self.args.scenario, 'map.npy'), encoding='latin1',
+			map_data = np.load(os.path.join(self.data_path + self.scenario, 'map.npy'), encoding='latin1',
 			                   allow_pickle=True)
 			self.agent_container.occupancy_grid.gridmap = map_data.item(0)['Map']  # occupancy values of cells
 			self.agent_container.occupancy_grid.resolution = map_data.item(0)['Resolution']  # map resolution in [m / cell]
@@ -531,11 +537,11 @@ class DataHandlerLSTM():
 
 		# Extract grid from real data
 		# Homography matrix to transform from image to world coordinates
-		H = np.genfromtxt(os.path.join(self.data_path +self.args.scenario, 'H.txt'), delimiter='  ', unpack=True).transpose()
+		H = np.genfromtxt(os.path.join(self.data_path +self.scenario, 'H.txt'), delimiter='  ', unpack=True).transpose()
 
 		# Extract static obstacles
 		obst_threshold = 200
-		static_obst_img = cv2.imread(os.path.join(self.data_path+self.args.scenario, 'map.png'), 0)
+		static_obst_img = cv2.imread(os.path.join(self.data_path+self.scenario, 'map.png'), 0)
 		obstacles = np.zeros([0, 3])
 		# pixel coordinates do cartesian coordinates
 		for xx in range(static_obst_img.shape[0]):
@@ -569,11 +575,11 @@ class DataHandlerLSTM():
 		# Pedestrian data
 		# [id, timestep (s), timestep (ns), pos x, pos y, yaw, vel x, vel y, omega, goal x, goal y]  <-- Incorrect?
 		# [frame_number pedestrian_ID pos_x pos_z pos_y v_x v_z v_y]
-		if os.path.exists(self.data_path +self.args.scenario+'/obsmat.txt'):
-			pedestrian_data = np.genfromtxt(os.path.join(self.data_path +self.args.scenario, 'obsmat.txt'), delimiter="  ")[1:, :]
+		if os.path.exists(self.data_path +self.scenario+'/obsmat.txt'):
+			pedestrian_data = np.genfromtxt(os.path.join(self.data_path +self.scenario, 'obsmat.txt'), delimiter="  ")[1:, :]
 			pixel_data = False
-		elif os.path.exists(self.data_path +self.args.scenario+'/obsmat_px.txt'):
-			pedestrian_data = np.genfromtxt(os.path.join(self.data_path + self.args.scenario, 'obsmat_px.txt'), delimiter="  ")[1:, :]
+		elif os.path.exists(self.data_path +self.scenario+'/obsmat_px.txt'):
+			pedestrian_data = np.genfromtxt(os.path.join(self.data_path + self.scenario, 'obsmat_px.txt'), delimiter="  ")[1:, :]
 			pixel_data = True
 		else:
 			print("Could not find obsmat.txt or obsmat_px.txt")
@@ -586,6 +592,7 @@ class DataHandlerLSTM():
 		idx_vx = 5
 		idx_vy = 7
 		idx_vz = 6
+		_tmp_dt = self.dt
 		self.dt = 0.4 # seconds (equivalent to 2.5 fps)
 		if os.path.split(self.data_path)[-1] == 'seq_eth':
 			frames_between_annotation = 6.0
@@ -599,7 +606,7 @@ class DataHandlerLSTM():
 			pose = np.zeros([1,3])
 			vel = np.zeros([1,3])
 			pose[:,0] = pedestrian_data[sample_idx, idx_posx]
-			if self.args.scenario == "zara_02":
+			if self.scenario == "zara_02":
 				pose[:, 1] = pedestrian_data[sample_idx, idx_posy] + 14
 			else:
 				pose[:,1] = pedestrian_data[sample_idx, idx_posy]
@@ -617,12 +624,17 @@ class DataHandlerLSTM():
 		self.agent_traj_idx = [0] * self.agent_container.getNumberOfAgents()
 
 		# Subsample trajectories (longer discretization time)
-		if self.dt != self.args.dt:
+		# self.dt is being hard set to 0.4 (this is done 30 lines above).
+		# _tmp_ddt used to be self.args.dt
+		# (ie, the dt value passed immediately as the class instance is being created.
+		# This value is then compared to the hard set value of 0.4,
+		# to determine whether trajectories need to be subsampled)
+		if self.dt != _tmp_dt:
 			print("SUBSAMPLE TRAJECTORIES (longer discretization time)...")
 			for id in self.agent_container.getAgentIDs():
 				for traj in self.agent_container.getAgentTrajectories(id):
 					if len(traj) > self.min_length_trajectory:
-						traj.smoothenTrajectory(dt=self.args.dt) # before was 0.3
+						traj.smoothenTrajectory(dt=_tmp_dt) # before was 0.3
 						traj.goal = np.expand_dims(traj.pose_vec[-1, :2], axis=0)
 					else:
 						self.agent_container.removeAgent(id)
@@ -641,7 +653,7 @@ class DataHandlerLSTM():
 
 		self.compute_min_max_values()
 
-		groups_path = os.path.join(self.data_path+self.args.scenario, 'groups.txt')
+		groups_path = os.path.join(self.data_path+self.scenario, 'groups.txt')
 		with open(groups_path,"r") as f:
 			all_data = [x.split() for x in f.readlines()]
 			lines = np.array([map(float,x) for x in all_data])
@@ -786,8 +798,8 @@ class DataHandlerLSTM():
 
 	def saveTrajectoryData(self, save_path):
 		print("Saving data to: '{}'".format(save_path))
-		if not os.path.isdir(self.args.data_path + self.args.scenario):
-			os.makedirs(self.args.data_path + self.args.scenario)
+		if not os.path.isdir(self.data_path + self.scenario):
+			os.makedirs(self.data_path + self.scenario)
 
 		# Reconstruct interpolators since they were not pickled with the rest of the trajectory
 		for id, traj in self.trajectory_set:
@@ -811,12 +823,9 @@ class DataHandlerLSTM():
 		pkl.dump(data, open(save_path, 'wb'),protocol=2)
 
 	def loadTrajectoryData(self, load_path):
-		print("Loading data from: '{}'".format(load_path))
+		print(f"Loading data from: '{load_path}'")
 		self.file = open(load_path, 'rb')
-		if sys.version_info[0] < 3:
-			tmp_self = pkl.loads(self.file)#,encoding='latin1')
-		else:
-			tmp_self = pkl.load(self.file , encoding='latin1')
+		tmp_self = pkl.load(self.file , encoding='latin1')
 		self.trajectory_set = tmp_self["trajectories"]
 		self.agent_container = tmp_self["agent_container"]
 
@@ -870,13 +879,10 @@ class DataHandlerLSTM():
 			for prev_step in range(self.prev_horizon,-1,-1):
 				current_pos = np.array([trajectory.pose_vec[start_idx + tbp_step - prev_step, 0], trajectory.pose_vec[
 					                        start_idx + tbp_step - prev_step, 1]])
-				# MISTAKE HERE vvvvvv (replaced with correct implementation)
-				# current_vel = np.array([trajectory.vel_vec[start_idx + tbp_step, 0], trajectory.vel_vec[
-				# 	                        start_idx + tbp_step - prev_step - prev_step, 1]])
 				current_vel = np.array([trajectory.vel_vec[start_idx + tbp_step - prev_step, 0], trajectory.vel_vec[
 					                        start_idx + tbp_step - prev_step, 1]])
 
-				if self.args.normalize_data:
+				if self.normalize_data:
 					self.normalize_pos(current_pos)
 					self.normalize_vel(current_vel)
 
@@ -895,8 +901,9 @@ class DataHandlerLSTM():
 			if centered_grid:
 				grid_center = current_pos
 				grid = self.agent_container.occupancy_grid.getSubmapByCoords(grid_center[0],
-																																			 grid_center[1],
-																																			 self.submap_width, self.submap_height)
+																			 grid_center[1],
+																			 self.submap_width,
+																			 self.submap_height)
 				#grid = self.agent_container.occupancy_grid.getFrontSubmap(grid_center,
 				#																													current_vel,
 				#																													self.submap_width, self.submap_height)
@@ -908,7 +915,7 @@ class DataHandlerLSTM():
 
 			# batch_goal[batch_idx, tbp_step, :] = trajectory.goal
 
-			# Find positions of other pedestrians at the current timestep and order them by dstance to query agent
+			# Find positions of other pedestrians at the current timestep and order them by distance to query agent
 			other_positions = trajectory.other_agents_positions[start_idx + tbp_step]
 			n_other_agents = other_positions.shape[0]
 			other_velocities = trajectory.other_agents_velocities[start_idx + tbp_step]
@@ -928,10 +935,10 @@ class DataHandlerLSTM():
 				other_poses_ordered[ag_id,4] = np.linalg.norm(other_poses_ordered[ag_id,:2] - current_pos)
 				# ordered ids
 				other_poses_ordered[ag_id,5] = ag_id
-			other_poses_ordered= other_poses_ordered[other_poses_ordered[:, 4].argsort()]
+			other_poses_ordered = other_poses_ordered[other_poses_ordered[:, 4].argsort()]
 
-			if self.args.others_info == "relative":
-				for ag_id in range(min(n_other_agents,self.args.n_other_agents)):
+			if self.others_info == "relative":
+				for ag_id in range(min(n_other_agents,self.n_other_agents)):
 					rel_pos = np.array([other_poses_ordered[ag_id,0] - current_pos[0],other_poses_ordered[ag_id, 1] - current_pos[1]])*\
 							      multivariate_normal.pdf(np.linalg.norm(np.array([other_poses_ordered[ag_id,:2] - current_pos])),
 							                                                  mean=0.0,cov=5.0)
@@ -941,7 +948,7 @@ class DataHandlerLSTM():
 					#pedestrian_grid[batch_idx, tbp_step, ag_id, 4] = np.linalg.norm(rel_pos)
 					#pedestrian_grid[batch_idx, tbp_step, ag_id, 5] = np.arctan2(rel_pos[1], rel_pos[0])
 
-			elif self.args.others_info == "angular_grid":
+			elif self.others_info == "angular_grid":
 				other_pos_local_frame = sup.positions_in_local_frame(current_pos, heading, other_positions)
 				radial_pedestrian_grid = sup.compute_radial_distance_vector(self.pedestrian_vector_dim, other_pos_local_frame,
 																															max_range=self.max_range_ped_grid, min_angle=0, max_angle=2*np.pi,
@@ -956,7 +963,7 @@ class DataHandlerLSTM():
 				py = trajectory.pose_vec[start_idx + tbp_step + 1 + pred_step, 1]
 				batch_y[batch_idx, tbp_step, self.output_state_dim*pred_step] = vx# - current_vel[0]
 				batch_y[batch_idx, tbp_step, self.output_state_dim*pred_step + 1] = vy# - current_vel[1]
-				if self.args.normalize_data:
+				if self.normalize_data:
 					self.normalize_vel(batch_y[batch_idx, tbp_step, self.output_state_dim*pred_step:self.output_state_dim*pred_step+2])
 				batch_pos_target[batch_idx, tbp_step, self.output_state_dim*pred_step] = px - trajectory.pose_vec[start_idx + tbp_step, 0]
 				batch_pos_target[batch_idx, tbp_step, self.output_state_dim*pred_step + 1] = py - trajectory.pose_vec[start_idx + tbp_step, 1]
@@ -997,21 +1004,21 @@ class DataHandlerLSTM():
 					new_epoch = True
 				self.batch_sequences[ii] = trajectory
 				self.batch_ids[ii] = id
-				self.sequence_idx[ii] = self.args.prev_horizon
+				self.sequence_idx[ii] = self.prev_horizon
 				self.sequence_reset[ii] = 1
 			else:
 				self.sequence_reset[ii] = 0
 
 		# Fill the batch
 		other_agents_pos = []
-		# Th second argument is needed such that when the dataset is too small the code does not break
+		# The second argument is needed such that when the dataset is too small the code does not break
 		for ii in range(0,min(self.batch_size,len(self.trajectory_set)-len(self.trajectory_set)%self.batch_size)):
 			traj = self.batch_sequences[ii]
 			agent_id = self.batch_ids[ii]
 			other_agents_pos.append(self.fillBatch(agent_id, ii, int(self.sequence_idx[ii]), self.tbpl, self.batch_x, self.batch_vel, self.batch_pos,self.batch_grid, self.pedestrian_grid, self.batch_goal, self.batch_y, traj,self.batch_pos_target, centered_grid=self.centered_grid))
 			self.sequence_idx[ii] += self.tbpl
 
-		if self.args.rotated_grid:
+		if self.rotated_grid:
 			_, self.batch_y = sup.rotate_batch_to_local_frame(self.batch_y,self.batch_x)
 			self.batch_x, self.batch_pos_target = sup.rotate_batch_to_local_frame(self.batch_pos_target, self.batch_x)
 
@@ -1045,7 +1052,7 @@ class DataHandlerLSTM():
 				self.val_data_idx = (self.val_data_idx + 1) % int(len(self.trajectory_set)*(1-self.train_set)-1) + int(len(self.trajectory_set)*self.train_set)
 				self.val_batch_sequences[ii] = trajectory
 				self.val_batch_ids[ii] = id
-				self.val_sequence_idx[ii] = self.args.prev_horizon
+				self.val_sequence_idx[ii] = self.prev_horizon
 				self.val_sequence_reset[ii] = 1
 			else:
 				self.val_sequence_reset[ii] = 0
@@ -1061,7 +1068,7 @@ class DataHandlerLSTM():
 			                        self.val_batch_y, traj,self.val_batch_pos_target, centered_grid=self.centered_grid))
 			self.val_sequence_idx[ii] += self.tbpl
 
-		if self.args.rotated_grid:
+		if self.rotated_grid:
 			_, self.val_batch_y = sup.rotate_batch_to_local_frame(self.val_batch_y,self.val_batch_x)
 			self.val_batch_x, self.val_batch_pos_target = sup.rotate_batch_to_local_frame(self.val_batch_pos_target, self.val_batch_x)
 
@@ -1095,8 +1102,8 @@ class DataHandlerLSTM():
 																																 self.submap_width, self.submap_height)
 		sequence_length = min(max_sequence_length, traj.pose_vec.shape[0] - self.output_sequence_length-self.prev_horizon)
 		batch_x = np.zeros([1, sequence_length, (self.prev_horizon+1)*self.input_dim])
-		batch_pos_target = np.zeros([1, sequence_length, 2*self.args.prediction_horizon])
-		if "future" in self.args.others_info:
+		batch_pos_target = np.zeros([1, sequence_length, 2*self.prediction_horizon])
+		if "future" in self.others_info:
 			batch_vel = np.zeros(
 				[1, sequence_length, self.input_state_dim * self.prediction_horizon])  # data fed for training
 		else:
@@ -1107,18 +1114,18 @@ class DataHandlerLSTM():
 		batch_goal = np.zeros([1, sequence_length, 2])
 		batch_y = np.zeros([1, sequence_length, self.output_state_dim * self.output_sequence_length])
 		batch_pos = np.zeros([1, sequence_length, self.output_state_dim * self.output_sequence_length])
-		if self.args.others_info == "relative":
-			pedestrian_grid = np.zeros([1, sequence_length, self.pedestrian_vector_dim*self.args.n_other_agents])
-		elif "sequence" in self.args.others_info:
+		if self.others_info == "relative":
+			pedestrian_grid = np.zeros([1, sequence_length, self.pedestrian_vector_dim*self.n_other_agents])
+		elif "sequence" in self.others_info:
 			pedestrian_grid = np.zeros(
-				[1, sequence_length, self.args.n_other_agents, self.pedestrian_vector_dim * self.prediction_horizon])
-		elif self.args.others_info == "prev_sequence":
+				[1, sequence_length, self.n_other_agents, self.pedestrian_vector_dim * self.prediction_horizon])
+		elif self.others_info == "prev_sequence":
 			pedestrian_grid = np.zeros(
-				[1, sequence_length, self.args.n_other_agents, self.pedestrian_vector_dim*(self.prev_horizon + 1)])
-		elif self.args.others_info == "sequence2":
+				[1, sequence_length, self.n_other_agents, self.pedestrian_vector_dim*(self.prev_horizon + 1)])
+		elif self.others_info == "sequence2":
 			pedestrian_grid = np.zeros(
-				[1, sequence_length, self.args.n_other_agents, self.prediction_horizon,self.pedestrian_vector_dim])
-		elif self.args.others_info == "ped_grid":
+				[1, sequence_length, self.n_other_agents, self.prediction_horizon,self.pedestrian_vector_dim])
+		elif self.others_info == "ped_grid":
 			pedestrian_grid = np.zeros([1, sequence_length,
 			                       int(np.ceil(self.submap_width / self.agent_container.occupancy_grid.resolution)),
 			                       int(np.ceil(self.submap_height / self.agent_container.occupancy_grid.resolution))])
@@ -1155,7 +1162,7 @@ class DataHandlerLSTM():
 																																 self.submap_width, self.submap_height)
 		sequence_length = min(max_sequence_length, traj.pose_vec.shape[0] - self.output_sequence_length-self.prev_horizon)
 		batch_x = np.zeros([1, sequence_length, (self.prev_horizon+1)*self.input_dim])
-		batch_pos_final = np.zeros([1, sequence_length, self.args.output_dim])
+		batch_pos_final = np.zeros([1, sequence_length, self.output_state_dim])
 		batch_vel = np.zeros([1, sequence_length, self.input_state_dim * (self.prev_horizon + 1)])
 		batch_grid = np.zeros([1, sequence_length,
 													 int(np.ceil(self.submap_width / self.agent_container.occupancy_grid.resolution)),
@@ -1164,7 +1171,7 @@ class DataHandlerLSTM():
 		batch_y = np.zeros([1, sequence_length, self.output_state_dim * self.output_sequence_length])
 		batch_pos = np.zeros([1, sequence_length, self.output_state_dim * self.output_sequence_length])
 		pedestrian_grid = np.zeros(
-				[1, sequence_length, self.args.n_other_agents, self.pedestrian_vector_dim * self.prediction_horizon])
+				[1, sequence_length, self.n_other_agents, self.pedestrian_vector_dim * self.prediction_horizon])
 
 		other_agents_pos_list.append(self.fillBatch(agent_id, 0, self.prev_horizon, sequence_length, batch_x, batch_vel, batch_pos,
 		                                  batch_grid, pedestrian_grid, batch_goal, batch_y, traj, batch_pos_final,
@@ -1186,7 +1193,7 @@ class DataHandlerLSTM():
 				sequence_length = min(max_sequence_length,
 				                      t.pose_vec.shape[0] - self.output_sequence_length - self.prev_horizon)
 				batch_x = np.zeros([1, sequence_length, (self.prev_horizon + 1) * self.input_dim])
-				batch_pos_final = np.zeros([1, sequence_length, self.args.output_dim])
+				batch_pos_final = np.zeros([1, sequence_length, self.output_state_dim])
 				batch_vel = np.zeros([1, sequence_length, self.input_state_dim * (self.prev_horizon + 1)])
 				batch_grid = np.zeros([1, sequence_length,
 				                       int(np.ceil(self.submap_width / self.agent_container.occupancy_grid.resolution)),
@@ -1195,7 +1202,7 @@ class DataHandlerLSTM():
 				batch_y = np.zeros([1, sequence_length, self.output_state_dim * self.output_sequence_length])
 				batch_pos = np.zeros([1, sequence_length, self.output_state_dim * self.output_sequence_length])
 				pedestrian_grid = np.zeros(
-					[1, sequence_length, self.args.n_other_agents, self.pedestrian_vector_dim * self.prediction_horizon])
+					[1, sequence_length, self.n_other_agents, self.pedestrian_vector_dim * self.prediction_horizon])
 				other_agents_pos_list.append(self.fillBatch(id, 0, self.prev_horizon, sequence_length, batch_x, batch_vel,batch_pos,batch_grid, pedestrian_grid, batch_goal, batch_y, t,batch_pos_final, centered_grid=self.centered_grid))
 				batch_x_list.append(batch_x)
 				batch_vel_list.append(batch_vel)
@@ -1220,29 +1227,29 @@ class DataHandlerLSTM():
 
 		sequence_length = min(max_sequence_length, traj.pose_vec.shape[0] - self.output_sequence_length-self.prev_horizon)
 		batch_x = np.zeros([1, sequence_length, (self.prev_horizon+1)*self.input_dim])  # data fed for training
-		batch_pos_final = np.zeros([1, sequence_length, self.args.output_dim])
-		if "future" in self.args.others_info:
+		batch_pos_final = np.zeros([1, sequence_length, self.output_state_dim])
+		if "future" in self.others_info:
 			batch_vel = np.zeros(
 				[1, sequence_length, self.input_state_dim * self.prediction_horizon])  # data fed for training
 		else:
 			batch_vel = np.zeros([1, sequence_length, self.input_state_dim * (self.prev_horizon + 1)])
 		batch_grid = np.zeros([1, sequence_length,
-													 int(np.ceil(self.submap_width / self.args.submap_resolution)),
-													 int(np.ceil(self.submap_height / self.args.submap_resolution))])
+													 int(np.ceil(self.submap_width / self.submap_resolution)),
+													 int(np.ceil(self.submap_height / self.submap_resolution))])
 		batch_goal = np.zeros([1, sequence_length, 2])
 		batch_y = np.zeros([1, sequence_length, self.output_state_dim * self.output_sequence_length])
 		batch_pos = np.zeros([1, sequence_length, self.output_state_dim * self.output_sequence_length])
-		if self.args.others_info == "relative":
-			pedestrian_grid = np.zeros([1,sequence_length, self.pedestrian_vector_dim*self.args.n_other_agents])
-		elif "sequence" in self.args.others_info:
+		if self.others_info == "relative":
+			pedestrian_grid = np.zeros([1,sequence_length, self.pedestrian_vector_dim*self.n_other_agents])
+		elif "sequence" in self.others_info:
 			pedestrian_grid = np.zeros(
-				[1, sequence_length, self.args.n_other_agents, self.pedestrian_vector_dim * self.prediction_horizon])
-		elif self.args.others_info == "prev_sequence":
+				[1, sequence_length, self.n_other_agents, self.pedestrian_vector_dim * self.prediction_horizon])
+		elif self.others_info == "prev_sequence":
 			pedestrian_grid = np.zeros(
-				[1, sequence_length, self.args.n_other_agents, self.pedestrian_vector_dim*(self.prev_horizon + 1)])
-		elif self.args.others_info == "sequence2":
+				[1, sequence_length, self.n_other_agents, self.pedestrian_vector_dim*(self.prev_horizon + 1)])
+		elif self.others_info == "sequence2":
 			pedestrian_grid = np.zeros(
-				[1, sequence_length, self.args.n_other_agents, self.prediction_horizon,self.pedestrian_vector_dim])
+				[1, sequence_length, self.n_other_agents, self.prediction_horizon,self.pedestrian_vector_dim])
 		else:
 			pedestrian_grid = np.zeros([1, sequence_length, self.pedestrian_vector_dim])
 		other_agents_pos = self.fillBatch(id, 0, self.prev_horizon, sequence_length, batch_x, batch_vel,batch_pos,batch_grid, pedestrian_grid, batch_goal, batch_y, traj,batch_pos_final, centered_grid=self.centered_grid,testing=True)
@@ -1331,12 +1338,12 @@ class DataHandlerLSTM():
 
 		#plot predicted trajectory global frame, if there is a prediction
 		if batch_agent_predicted_traj is not None:
-			vel_pred = np.zeros((self.args.prediction_horizon, 2))
-			for mix_idx in range(self.args.n_mixtures):
+			vel_pred = np.zeros((self.prediction_horizon, 2))
+			for mix_idx in range(self.n_mixtures):
 				# plot predicted trajectory global frame
-				for pred_step in range(self.args.prediction_horizon):
-					idx = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx
-					idy = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx + self.args.n_mixtures
+				for pred_step in range(self.prediction_horizon):
+					idx = pred_step * self.output_pred_state_dim * self.n_mixtures + mix_idx
+					idy = pred_step * self.output_pred_state_dim * self.n_mixtures + mix_idx + self.n_mixtures
 					mu_x = batch_agent_predicted_traj[seq_index, t, idx]
 					mu_y = batch_agent_predicted_traj[seq_index, t, idy]
 					vel_pred[pred_step, :] = [mu_x, mu_y]
@@ -1349,10 +1356,10 @@ class DataHandlerLSTM():
 
 		#plot real trajectory global frame
 		color_value = scalar_color_map.to_rgba(r)
-		real_traj = np.zeros((self.args.prediction_horizon, 2))
-		for i in range(self.args.prediction_horizon):
-			idx = i * self.args.output_dim
-			idy = i * self.args.output_dim + 1
+		real_traj = np.zeros((self.prediction_horizon, 2))
+		for i in range(self.prediction_horizon):
+			idx = i * self.output_state_dim
+			idy = i * self.output_state_dim + 1
 			mu_x = batch_agent_real_traj[seq_index, t, idx]
 			mu_y = batch_agent_real_traj[seq_index, t, idy]
 			real_traj[i, :] = [mu_x, mu_y]
@@ -1413,12 +1420,12 @@ class DataHandlerLSTM():
 
 		# plot predicted trajectory local frame, if there is a prediction
 		if batch_agent_predicted_traj is not None:
-			vel_pred = np.zeros((self.args.prediction_horizon, 2))
-			for mix_idx in range(self.args.n_mixtures):
+			vel_pred = np.zeros((self.prediction_horizon, 2))
+			for mix_idx in range(self.n_mixtures):
 				# plot predicted trajectory global frame
-				for pred_step in range(self.args.prediction_horizon):
-					idx = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx
-					idy = pred_step * self.args.output_pred_state_dim * self.args.n_mixtures + mix_idx + self.args.n_mixtures
+				for pred_step in range(self.prediction_horizon):
+					idx = pred_step * self.output_pred_state_dim * self.n_mixtures + mix_idx
+					idy = pred_step * self.output_pred_state_dim * self.n_mixtures + mix_idx + self.n_mixtures
 					mu_x = batch_agent_predicted_traj[seq_index, t, idx]
 					mu_y = batch_agent_predicted_traj[seq_index, t, idy]
 					vel_pred[pred_step, :] = [mu_x, mu_y]
@@ -1430,10 +1437,10 @@ class DataHandlerLSTM():
 				ax_out.plot(x_pred, y_pred, color='r',label='Predicted trajectory')
 
 		# plot real trajectory local frame does it make sense? isnt batch_y in the robot frame
-		real_traj = np.zeros((self.args.prediction_horizon, 2))
-		for i in range(self.args.prediction_horizon):
-			idx = i * self.args.output_dim
-			idy = i * self.args.output_dim + 1
+		real_traj = np.zeros((self.prediction_horizon, 2))
+		for i in range(self.prediction_horizon):
+			idx = i * self.output_state_dim
+			idy = i * self.output_state_dim + 1
 			mu_x = batch_agent_real_traj[seq_index, t, idx]
 			mu_y = batch_agent_real_traj[seq_index, t, idy]
 			real_traj[i, :] = [mu_x, mu_y]
@@ -1444,13 +1451,13 @@ class DataHandlerLSTM():
 		# Query Agent Local frame plot
 		if real_traj[0, 0] > 0.1:
 			sup.plot_grid(ax_out, np.array([3.0, 0.0]), batch_grid[seq_index,t,:,:], global_grid.resolution,
-			              np.array([self.args.submap_width, self.args.submap_height]))
+			              np.array([self.submap_width, self.submap_height]))
 		elif real_traj[0, 0] < -0.1:
 			sup.plot_grid(ax_out, np.array([-3.0, 0.0]), batch_grid[seq_index,t,:,:], global_grid.resolution,
-			              np.array([self.args.submap_width, self.args.submap_height]))
+			              np.array([self.submap_width, self.submap_height]))
 		else:
 			sup.plot_grid(ax_out, np.array([0.0, 0.0]), batch_grid[seq_index,t,:,:], global_grid.resolution,
-			              np.array([self.args.submap_width, self.args.submap_height]))
+			              np.array([self.submap_width, self.submap_height]))
 
 		x = real_traj_global_frame[:, 0]
 		y = real_traj_global_frame[:, 1]
@@ -1501,11 +1508,11 @@ class DataHandlerLSTM():
 		factor = 1.0 + mag * self.factor_
 
 		# Position in map frame
-		dx = 	int((cx + rows / 2*self.args.submap_resolution ) / self.args.submap_resolution)
-		dy = int((cy + cols / 2*self.args.submap_resolution ) / self.args.submap_resolution)
+		dx = 	int((cx + rows / 2*self.submap_resolution ) / self.submap_resolution)
+		dy = int((cy + cols / 2*self.submap_resolution ) / self.submap_resolution)
 
-		bx = min(max(cx - self.args.submap_width / 2,- self.args.submap_width / 2),self.args.submap_width / 2)
-		by = min(max(cy - self.args.submap_height / 2,- self.args.submap_height / 2),self.args.submap_height / 2)
+		bx = min(max(cx - self.submap_width / 2,- self.submap_width / 2),self.submap_width / 2)
+		by = min(max(cy - self.submap_height / 2,- self.submap_height / 2),self.submap_height / 2)
 
 		# Iterate over map
 		update_window = 2
@@ -1513,8 +1520,8 @@ class DataHandlerLSTM():
 			for j in range(max(dy - update_window, 0), min(dy + update_window, cols)):
 				old_cost = batch_grid[i, j]
 
-				x = bx + i * self.args.submap_resolution
-				y = by + j * self.args.submap_resolution
+				x = bx + i * self.submap_resolution
+				y = by + j * self.submap_resolution
 				ma = np.arctan2(y - cy, x - cx)
 
 				diff = self.shortest_angular_distance(angle, ma)
@@ -1576,11 +1583,11 @@ class DataHandlerLSTM():
 					cy = other_agents_pos[agent_id, 1]-batch_x[seq_index,t_idx,1]
 
 					# Position in map frame
-					dx = 	int((cx + rows / 2*self.args.submap_resolution ) / self.args.submap_resolution)
-					dy = int((cy + cols / 2*self.args.submap_resolution ) / self.args.submap_resolution)
+					dx = 	int((cx + rows / 2*self.submap_resolution ) / self.submap_resolution)
+					dy = int((cy + cols / 2*self.submap_resolution ) / self.submap_resolution)
 
-					bx = min(max(cx - self.args.submap_width / 2,- self.args.submap_width / 2),self.args.submap_width / 2)
-					by = min(max(cy - self.args.submap_height / 2,- self.args.submap_height / 2),self.args.submap_height / 2)
+					bx = min(max(cx - self.submap_width / 2,- self.submap_width / 2),self.submap_width / 2)
+					by = min(max(cy - self.submap_height / 2,- self.submap_height / 2),self.submap_height / 2)
 
 					# Iterate over map
 					update_window = 10
@@ -1588,8 +1595,8 @@ class DataHandlerLSTM():
 						for j in range(max(dy - update_window, 0), min(dy + update_window, cols)):
 							old_cost = batch_grid[seq_index,t_idx,i, j]
 
-							x = bx + i * self.args.submap_resolution
-							y = by + j * self.args.submap_resolution
+							x = bx + i * self.submap_resolution
+							y = by + j * self.submap_resolution
 							ma = np.arctan2(y - cy, x - cx)
 
 							diff = self.shortest_angular_distance(angle, ma)
