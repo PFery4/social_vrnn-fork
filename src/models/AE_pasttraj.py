@@ -78,7 +78,7 @@ class PastTrajAE:
         self.input_series = tf.reshape(self.input_placeholder, [-1, self.training_instance_dim])        # reshaping [batch_size, time_trunc_BPTT, time_series] --> [batch_size * time_trunc_BPTT, time_series]
         # print(self.input_series)
 
-        with tf.variable_scope(self.scope_name):
+        with tf.variable_scope(self.scope_name) as scope:
 
             # print("input_series: ", self.input_series[0].shape)
 
@@ -219,8 +219,6 @@ class PastTrajAE:
     def save_model(self, sess: tf.Session, step=None, filename="model_ckpt"):
         """
         saves the model parameters under directory specified by 'self.full_save_path'
-
-        input data must be of shape [self.batch_size, self.truncated_backprop_length, self.training_instance_dim]
         """
         # print(f"Saving Query Agent Autoencoder to: {self.full_save_path}")
         self.saver.save(sess=sess, save_path=os.path.join(self.full_save_path, filename), global_step=step)
