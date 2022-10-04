@@ -200,7 +200,7 @@ class LSTMEncoderDecoder:
                                            self.n_features]
         """
         reconstruction_loss = sess.run(
-            [self.reconstruction_loss],
+            self.reconstruction_loss,
             feed_dict=self.feed_dic(input_data=input_data)
         )
         return reconstruction_loss
@@ -240,10 +240,9 @@ class LSTMEncoderDecoder:
         saves the model parameters under a specific directory specified by <path>.
         """
         assert os.path.exists(path), f"Path to save the model does not exist:\n{path}"
-
-        print(colorama.Fore.CYAN +
-              f"Saving LSTM Encoder Decoder to:\n{path}" +
-              colorama.Style.RESET_ALL)
+        # print(colorama.Fore.CYAN +
+        #       f"Saving LSTM Encoder Decoder to:\n{path}" +
+        #       colorama.Style.RESET_ALL)
         self.saver.save(sess=sess, save_path=os.path.join(path, filename), global_step=step)
 
     def load_model(self, sess: tf.Session, path: str):
@@ -259,30 +258,99 @@ class LSTMEncoderDecoder:
         self.saver.restore(sess, ckpt_ae.model_checkpoint_path)
 
 
-def work_with_data_prep():
+def train_LSTM_ED_module():
     """
     A toy example to see how the LSTM_ED module can be trained using the datahandler.
     """
     import src.train_WIP
     import src.data_utils.DataHandlerLSTM
+    import matplotlib.pyplot as plt
+    import pickle as pkl
+    import json
+
+    num_steps = 10000       # CHANGE
+    log_freq = 10
 
     args = src.train_WIP.parse_args()
+    args.encoding_layers_dim = [32]
+    args.exp_num = 0
+
+    model_name = "LSTM_ED_module"
+
+    save_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.exp_num}"))
+    results_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.exp_num}/results"))
+
+    print(colorama.Fore.GREEN +
+          f"Creating folder to save model parameters in:\n{save_path}" +
+          colorama.Style.RESET_ALL)
+    assert not os.path.exists(save_path)
+    os.makedirs(save_path)
+    print(colorama.Fore.GREEN +
+          f"Creating folder to save training results in:\n{results_path}" +
+          colorama.Style.RESET_ALL)
+    assert not os.path.exists(results_path)
+    os.makedirs(results_path)
 
     data_prep = src.data_utils.DataHandlerLSTM.DataHandlerLSTM(args=args)
     data_prep.processData()
 
+    session = tf.Session()
     lstm_ae_module = LSTMEncoderDecoder(args=args)
 
-    batch_x, \
-    batch_vel, \
-    batch_pos, \
-    batch_goal, \
-    batch_grid, \
-    batch_ped_grid, \
-    batch_y, \
-    batch_pos_target, \
-    other_agents_pos, \
-    new_epoch = data_prep.getBatch()
+    # initializing weights
+    session.run(tf.global_variables_initializer())
+    lstm_ae_module.initialize_random_weights(sess=session)
+
+    train_losses = []
+    val_losses = []
+    best_loss = float('inf')
+    # _, batch_vel, _, _, _, _, _, _, _, _ = data_prep.getBatch()
+    for step in range(num_steps):
+        _, batch_vel, _, _, _, _, _, _, _, _ = data_prep.getBatch()
+
+        loss = lstm_ae_module.run_update_step(sess=session, input_data=batch_vel)
+        train_losses.append(loss.item())
+
+        if step % log_freq == 0:
+            testbatch = data_prep.getTestBatch()
+            val_loss = lstm_ae_module.run_val_step(sess=session, input_data=testbatch["batch_vel"])
+            val_losses.append(val_loss.item())
+
+            log = f"step {str(step).ljust(10)}| Training Loss: {loss:.4f} | Validation Loss: {val_loss:.4f}"
+
+            if val_loss.item() < best_loss:
+                lstm_ae_module.save_model(sess=session, path=save_path, step=step)
+                best_loss = val_loss.item()
+                log += "| Saved"
+
+            print(log)
+
+    lstm_ae_module.save_model(sess=session, path=save_path, step=step, filename="final-model.ckpt")
+
+    yhat = lstm_ae_module.reconstruct(sess=session, input_data=batch_vel)
+
+    print()
+    print('---Predicted---')
+    print(np.round(yhat, 3))
+    print('---Actual---')
+    print(np.round(batch_vel, 3))
+    plt.scatter(np.arange(yhat.size), yhat.flatten(), label="Prediction", marker="x")
+    plt.scatter(np.arange(batch_vel.size), batch_vel.flatten(), label="Ground Truth", s=40, facecolors="none", edgecolors='r')
+    plt.legend()
+    plt.show(block=False)
+
+    output_dict = {"train_losses": train_losses,
+                   "val_losses": val_losses,
+                   "num_steps": num_steps,
+                   "log_freq": log_freq,
+                   "dataset": os.path.basename(data_prep.scenario)}
+
+    with open(os.path.join(save_path, "parameters.json"), 'w') as file:
+        json.dump(lstm_ae_module.info_dict(), file, indent=0)
+    with open(os.path.join(results_path, "results.json"), 'w') as file:
+        json.dump(output_dict, file)
+    with open(os.path.join(results_path, "results.pkl"), 'wb') as file:
+        pkl.dump(output_dict, file, protocol=2)
 
 
 def work_with_toy_data():
@@ -360,5 +428,5 @@ def work_with_toy_data():
 
 
 if __name__ == '__main__':
-    # work_with_data_prep()
-    work_with_toy_data()
+    # work_with_toy_data()
+    train_LSTM_ED_module()

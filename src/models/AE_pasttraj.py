@@ -247,7 +247,6 @@ def trainAE(model: PastTrajAE, data_prep: dhlstm.DataHandlerLSTM, sess: tf.Sessi
 
     train_losses = []
     val_losses = []
-    val_steps = []
     best_loss = float('inf')
     for step in range(num_steps):
         batch_x, batch_vel, batch_pos, batch_goal, batch_grid, batch_ped_grid, batch_y, batch_pos_target, other_agents_pos, new_epoch = data_prep.getBatch()
@@ -266,7 +265,6 @@ def trainAE(model: PastTrajAE, data_prep: dhlstm.DataHandlerLSTM, sess: tf.Sessi
             testbatch = data_prep.getTestBatch()
             val_loss = model.run_val_step(sess=sess, input_data=testbatch["batch_vel"])
             val_losses.append(val_loss["reconstruction_loss"].item())
-            val_steps.append(step)
 
             # weights = plot_utils.get_weight_value(session=sess, weight_str='query_agent_auto_encoder/encode0/weights:0',
             #                                       n_weights=4)
