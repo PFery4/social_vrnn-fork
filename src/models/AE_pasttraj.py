@@ -156,7 +156,6 @@ class PastTrajAE:
         print(Fore.YELLOW + "Initializing Past Trajectory Autoencoder with random weights" + Style.RESET_ALL)
         sess.run(self.initializer)
 
-
     def describe(self):
         """
         prints the relevant (hyper)parameters which define the architecture.
@@ -244,6 +243,7 @@ class PastTrajAE:
         ckpt_ae = tf.train.get_checkpoint_state(load_path)
         print(f"Restoring PastTraj AE: {ckpt_ae.model_checkpoint_path}")
         self.saver.restore(sess, ckpt_ae.model_checkpoint_path)
+
 
 def trainAE(model: PastTrajAE, data_prep: dhlstm.DataHandlerLSTM, sess: tf.Session, num_steps=10000, log_freq=100):
 

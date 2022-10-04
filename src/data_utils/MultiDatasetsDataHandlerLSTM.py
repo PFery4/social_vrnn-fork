@@ -1,9 +1,7 @@
 """
 
 This is the implementation of a class whih manages multiple DataHandlerLSTM instances.
-The goal of this class is to make it possible to conduct training of a model using multiple datasets (more specifically,
-to be able to properly reproduce the training procedure stated in the article, where the architecture is being trained
-on 4 of the 5 ETH/UCY datasets, to be then evaluated on the last one).
+The goal of this class is to make it possible to conduct training of a model using multiple datasets
 
 """
 import os.path
@@ -11,7 +9,7 @@ import random
 import sys
 sys.path.append('../../')
 sys.path.append('../')
-import DataHandlerLSTM
+import src.data_utils.DataHandlerLSTM
 import src.train_WIP
 import numpy as np
 import argparse
@@ -35,20 +33,12 @@ class MultiDataHandler:
         for idx, dataset in enumerate(self.datasets):
             _copy_args = argparse.Namespace(**vars(args))
             _copy_args.scenario = dataset
-            dataprep = DataHandlerLSTM.DataHandlerLSTM(_copy_args)
+            dataprep = src.data_utils.DataHandlerLSTM.DataHandlerLSTM(_copy_args)
             dataprep.processData()
             self.dataHandlers.append(dataprep)
             self.datahandler_idxs.extend([idx] * len(dataprep.trajectory_set))
 
         random.shuffle(self.datahandler_idxs)
-
-        for dataset in self.dataHandlers:
-            print(dataset.scenario)
-            print(len(dataset.trajectory_set))
-            print(dataset.agent_container.getNumberOfAgents())
-            # print(dataset.batch_sequences)
-            print(dataset.sequence_idx)
-        print(self.datahandler_idxs)
 
 
 def main():
@@ -78,6 +68,11 @@ def main():
     # validation_dict = datahandler.getTestBatch()
 
 
+    # Can be used in the training loop with this:
+    # dataset_list = ['ewap_dataset/seq_hotel', 'ewap_dataset/seq_eth', 'st', 'zara_01', 'zara_02']
+    # dataset_list = [os.path.join("real_world", dataset) for dataset in dataset_list]
+    # dataset_list.remove(args.scenario)
+    # multi_data_prep = MultiDataHandler(args=args, datasets=dataset_list)
 
 
 if __name__ == '__main__':

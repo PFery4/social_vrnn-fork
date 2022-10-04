@@ -15,6 +15,7 @@ from matplotlib.animation import FFMpegWriter
 from matplotlib.patches import Ellipse
 import argparse
 from colorama import Fore, Style
+import csv
 
 def plot_scenario(enc_seq, dec_seq, traj, predictions, args):
     """
@@ -1388,7 +1389,7 @@ def plot_QA_AE_loss_graph(exp_num, ax):
 def compare_QA_AE_plots(exp_num_list):
     """
 	Plots multiple loss graphs of the query agent past trajectory autoencoder, for easy comparison between different
-	setups
+	setups.
 	exp_num_list is a list of ints, which refer to the experiment results to use for plotting.
 	"""
     fig, axs = pl.subplots(1, len(exp_num_list), sharex='all', sharey='all')
@@ -1405,3 +1406,31 @@ def print_args(parsed_args: argparse.Namespace, spacing: int = 40) -> None:
     for key, val in vars(parsed_args).items():
         print(Fore.YELLOW + f"{str(key).ljust(spacing)}|\t{val}" + Style.RESET_ALL)
     return None
+
+
+def plot_ADE_FDE_runs(ax, model_name: str, exp_num: int):
+    """
+    reads through the <model_name>_summary.csv file (inside the src folder), looks for experiments performed with model <exp_num>. plots the
+    resulting ADE and FDE errors on ax.
+    """
+    pathname = os.path.abspath(os.path.join(os.path.abspath(__file__), f"../../{model_name}_summary.csv"))
+    assert os.path.exists(pathname)
+    with open(pathname) as file:
+        csvreader = csv.reader(file)
+        rows = list(csvreader)
+        model_name_colidx = rows[0].index("Model name")
+        mse_colidx = rows[0].index("MSE")
+        fde_colidx = rows[0].index("FDE")
+
+        mse_lst = []
+        fde_lst = []
+
+        for row in rows:
+            if row[model_name_colidx] != f"{model_name}_{exp_num}":
+                continue
+            mse_lst.append(float(row[mse_colidx]))
+            fde_lst.append(float(row[fde_colidx]))
+
+        ax.boxplot((mse_lst, fde_lst), labels=("ADE", "FDE"), showfliers=False)
+        ax.scatter([1] * len(mse_lst), mse_lst, label="Own tests")
+        ax.scatter([2] * len(fde_lst), fde_lst, label="Own tests")

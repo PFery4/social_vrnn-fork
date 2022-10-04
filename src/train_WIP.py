@@ -331,21 +331,15 @@ if __name__ == '__main__':
     # preparing the directories for storing logs and model parameters
     prepare_model_directory(args)
 
-    dataset_list = ['ewap_dataset/seq_hotel', 'ewap_dataset/seq_eth', 'st', 'zara_01', 'zara_02']
-    dataset_list = [os.path.join("real_world", dataset) for dataset in dataset_list]
-    dataset_list.remove(args.scenario)
-    print(dataset_list)
-    multi_data_prep = multidhlstm.MultiDataHandler(args=args, datasets=dataset_list)
-
-    # # Create Datahandler class
-    # data_prep = dhlstm.DataHandlerLSTM(args)
-    # # Only used to create a map from png
-    # # Make sure these parameters are correct otherwise it will fail training and plotting the results
-    # map_args = {"file_name": 'map.png',
-    #             "resolution": 0.1,
-    #             "map_size": np.array([30., 6.])}
-    # # Load dataset
-    # data_prep.processData(**map_args)
+    # Create Datahandler class
+    data_prep = dhlstm.DataHandlerLSTM(args)
+    # Only used to create a map from png
+    # Make sure these parameters are correct otherwise it will fail training and plotting the results
+    map_args = {"file_name": 'map.png',
+                "resolution": 0.1,
+                "map_size": np.array([30., 6.])}
+    # Load dataset
+    data_prep.processData(**map_args)
     #
     # # WIP CODE
     # print("DATA_PREP INFO")
@@ -420,12 +414,6 @@ if __name__ == '__main__':
 
         for step in range(initial_step, args.total_training_steps):
             start_time_loop = time.time()
-
-
-            data_prep_idx = multi_data_prep.datahandler_idxs[step % len(multi_data_prep.datahandler_idxs)]
-            data_prep = multi_data_prep.dataHandlers[data_prep_idx]
-
-            print(f"SAMPLING FROM DATASET: {data_prep_idx}, {data_prep.scenario}")
 
             # WIPCODE
             # weight_str = 'auto_encoder/Conv/weights:0'
