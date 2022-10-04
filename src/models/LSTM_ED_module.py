@@ -12,6 +12,7 @@ import tensorflow as tf
 import numpy as np
 import colorama
 
+
 class LSTMEncoderDecoder:
 
     def __init__(self, args: argparse.Namespace):
@@ -46,31 +47,8 @@ class LSTMEncoderDecoder:
         self.input_series = tf.unstack(self.input_placeholder, axis=1)
 
         # Optimizer specifiation
-        self.learning_rate = 1e-4
+        self.learning_rate = 1e-3
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-
-        # # model parameters
-        # self.rnn_state_size = args.rnn_state_size
-        # self.cell_state_current = np.zeros([self.batch_size, self.rnn_state_size])
-        # self.hidden_state_current = np.zeros([self.batch_size, self.rnn_state_size])
-        # self.cell_state = tf.placeholder(dtype=tf.float32,
-        #                                  shape=[None,
-        #                                         self.rnn_state_size],
-        #                                  name='cell_state')
-        # self.hidden_state = tf.placeholder(dtype=tf.float32,
-        #                                    shape=[None,
-        #                                           self.rnn_state_size],
-        #                                    name='hidden_state')
-        # self.init_state_tuple = tf.contrib.rnn.LSTMStateTuple(self.cell_state, self.hidden_state)
-        #
-        # with tf.variable_scope(self.scope_name) as scope:
-        #     self.cell = tf.nn.rnn_cell.LSTMCell(self.rnn_state_size, name='basic_lstm_cell', trainable=True)
-        #     print(self.cell.state_size)
-        #     self.outputs_series_state, self.current_state = \
-        #         tf.contrib.rnn.static_rnn(cell=self.cell,
-        #                                   inputs=self.input_series,
-        #                                   dtype=tf.float32,
-        #                                   initial_state=self.init_state_tuple)
 
         # Creating the architecture
         self.encoding_layers_dim = args.encoding_layers_dim
@@ -143,18 +121,6 @@ class LSTMEncoderDecoder:
             assert all(self.output_series[i].shape.as_list() == self.input_series[i].shape.as_list()
                        for i in range(self.truncated_backprop_length))
             assert self.input_placeholder.shape.as_list() == self.output_tensor.shape.as_list()
-
-            ### WIP DEBUG
-            print("DOING SOMETHING HERE")
-            print(self.input_placeholder.shape)
-            print(len(self.input_series))
-            print(self.input_series[0].shape)
-
-            print()
-            print(self.output_tensor.shape)
-            print(len(self.output_series))
-            print(self.output_series[0].shape)
-            ### WIP DEBUG
 
             # Loss
             reconstruction_loss = tf.squared_difference(self.input_placeholder, self.output_tensor)
@@ -251,6 +217,8 @@ class LSTMEncoderDecoder:
             self.output_series,
             feed_dict=self.feed_dic(input_data=input_data)
         )
+        # reshaping the output data so that it is the same shape as the numpy array fed as input_data
+        output_data = np.stack(output_data, axis=1)
         return output_data
 
     def encode(self, sess: tf.Session, input_data: np.array):
@@ -379,18 +347,10 @@ def work_with_toy_data():
 
     module.initialize_random_weights(sess=session)
 
-    for i in tqdm(range(300)):
+    for i in tqdm(range(3000)):
         module.run_update_step(sess=session, input_data=X)
 
     yhat = module.reconstruct(sess=session, input_data=X)
-
-    print()
-    print(X.shape)
-    print(len(yhat))
-    print(len(yhat[0]))
-
-    # TODO: DO SOMETHING ABOUT RESHAPING OF OUTPUT YHAT
-    print(session.run(module.input_series, feed_dict=module.feed_dic(input_data=X)))
 
     print()
     print('---Predicted---')
