@@ -11,10 +11,10 @@ import time
 from multiprocessing.pool import ThreadPool
 from colorama import Fore, Style
 import tensorflow as tf
-import src.data_utils.MultiDatasetsDataHandlerLSTM as multidhlstm
+# import src.data_utils.MultiDatasetsDataHandlerLSTM as multidhlstm
 
 
-### DEFINITIONS
+# DEFINITIONS ##########################################################################################################
 
 def parse_args():
     """
@@ -48,6 +48,9 @@ def parse_args():
     query_agent_ae_latent_space_dim = 4
     query_agent_ae_optimizer = 'Adam'
     freeze_qa_ae = False
+    # LSTM Encoder/Decoder
+    lstmed_encoding_layers = [32]
+    lstmed_exp_num = 0
 
     # Occupancy grid CNN
     freeze_grid_cnn = True
@@ -280,11 +283,22 @@ def parse_args():
                         help='whether the query agent autoencoder should have its weights frozen while training.',
                         type=sup.str2bool, default=freeze_qa_ae)
 
+    # LSTM Encoder/Decoder
+    parser.add_argument('--lstmed_encoding_layers',
+                        help='a list containing the dimensions of the encoding LSTM layers of the LSTM Encoder Decoder',
+                        nargs='+', type=int, default=lstmed_encoding_layers)
+    parser.add_argument('--lstmed_exp_num',
+                        help='experiment number for the LSTM Encoder Decoder',
+                        type=int, default=lstmed_exp_num)
+
     parsed_args = parser.parse_args()
 
     parsed_args.model_path = '../trained_models/' + parsed_args.model_name + '/' + str(parsed_args.exp_num)
     parsed_args.log_dir = parsed_args.model_path + '/log'
     # parsed_args.dataset = '/' + parsed_args.scenario + '.pkl'     # DOES NOT SEEM TO BE USED ANYWHERE
+
+    # for the LSTM Encoder/Decoder
+    parsed_args.lstmed_n_features = parsed_args.input_state_dim * (parsed_args.prev_horizon + 1)
 
     return parsed_args
 

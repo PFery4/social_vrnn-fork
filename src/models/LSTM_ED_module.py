@@ -16,10 +16,19 @@ import colorama
 class LSTMEncoderDecoder:
 
     def __init__(self, args: argparse.Namespace):
+        """
+        initialise an instance of the LSTMEncoderDecoder class.
+
+        <args> must contain:
+            - batch_size                    : the batch size with which the model will be working
+            - truncated_backprop_length     : time truncation factor for unrolling the LSTM for training
+            - n_features                    : number of features contained within one training instance
+            - lstmed_encoding_layers        : encoding LSTM dimensions for the encoder (decoder is symmetrical)
+        """
 
         # defining Filesystem relevant parameters
         self.scope_name = 'lstm_encoder_decoder'
-        self.id = 0
+        self.id = args.lstmed_exp_num
         self.save_path = "../trained_models/"
         self.model_name = "LSTMEncoderDecoder"
         self.model_directory = os.path.abspath(os.path.join(self.save_path, self.model_name))
@@ -32,11 +41,12 @@ class LSTMEncoderDecoder:
             - T is the Truncated Backpropagation Length:    self.truncated_backprop_length
             - D is the Dimension of a Training Instance:    self.n_features
         """
-        self.input_state_dim = args.input_state_dim
         self.batch_size = args.batch_size
         self.truncated_backprop_length = args.truncated_backprop_length
-        self.prev_horizon = args.prev_horizon
-        self.n_features = self.input_state_dim * (self.prev_horizon + 1)
+
+        # when working with the ETH/UCY dataset, it is important that:
+        # args.n_features = args.input_state_dim * (args.prev_horizon + 1)
+        self.n_features = args.lstmed_n_features
 
         # input formatting
         self.input_placeholder = tf.placeholder(dtype=tf.float32,
@@ -51,10 +61,12 @@ class LSTMEncoderDecoder:
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
 
         # Creating the architecture
-        self.encoding_layers_dim = args.encoding_layers_dim
+        self.encoding_layers_dim = args.lstmed_encoding_layers
         for i, dim_size in enumerate(self.encoding_layers_dim):
             setattr(self, f"enc_{i}_cell_state_current", np.zeros([self.batch_size, dim_size]))
             setattr(self, f"enc_{i}_hidden_state_current", np.zeros([self.batch_size, dim_size]))
+            setattr(self, f"enc_{i}_test_cell_state_current", np.zeros([self.batch_size, dim_size]))
+            setattr(self, f"enc_{i}_test_hidden_state_current", np.zeros([self.batch_size, dim_size]))
             setattr(self, f"enc_{i}_cell_state", tf.placeholder(dtype=tf.float32,
                                                                 shape=[None, dim_size],
                                                                 name=f'enc_{i}_cell_state'))
@@ -69,6 +81,8 @@ class LSTMEncoderDecoder:
         for i, dim_size in enumerate(reversed(self.encoding_layers_dim)):
             setattr(self, f"dec_{i}_cell_state_current", np.zeros([self.batch_size, dim_size]))
             setattr(self, f"dec_{i}_hidden_state_current", np.zeros([self.batch_size, dim_size]))
+            setattr(self, f"dec_{i}_test_cell_state_current", np.zeros([self.batch_size, dim_size]))
+            setattr(self, f"dec_{i}_test_hidden_state_current", np.zeros([self.batch_size, dim_size]))
             setattr(self, f"dec_{i}_cell_state", tf.placeholder(dtype=tf.float32,
                                                                 shape=[None, dim_size],
                                                                 name=f'dec_{i}_cell_state'))
@@ -135,23 +149,30 @@ class LSTMEncoderDecoder:
         self.initializer = tf.initialize_variables(self.model_var_list)
 
     def info_dict(self):
-        info_dict = {"input_state_dim": self.input_state_dim,
-                     "batch_size": self.batch_size,
+        info_dict = {"batch_size": self.batch_size,
                      "truncated_backprop_length": self.truncated_backprop_length,
-                     "prev_horizon": self.prev_horizon,
-                     "n_features": self.n_features}
+                     "n_features": self.n_features,
+                     "encoding_layers_dim": self.encoding_layers_dim,}
         return info_dict
 
     def describe(self) -> None:
         """
         prints the relevant (hyper)parameters which define the architecture.
         """
-        print("LSTM Autoencoder hyperparameters / info:")
+        print(colorama.Fore.YELLOW +
+              "LSTM Autoencoder hyperparameters / info:" +
+              colorama.Style.RESET_ALL)
         for k, v in self.info_dict().items():
-            print(f"{k.ljust(45)}| {v}")
-        print("\nLayers")
+            print(colorama.Fore.YELLOW +
+                  f"{k.ljust(45)}| {v}" +
+                  colorama.Style.RESET_ALL)
+        print(colorama.Fore.YELLOW +
+              "\nLayers" +
+              colorama.Style.RESET_ALL)
         for var in self.model_var_list:
-            print(var)
+            print(colorama.Fore.YELLOW +
+                  var +
+                  colorama.Style.RESET_ALL)
         return None
 
     def initialize_random_weights(self, sess: tf.Session):
@@ -177,6 +198,52 @@ class LSTMEncoderDecoder:
             feed_dictionary[getattr(self, f"dec_{i}_hidden_state")] = getattr(self, f"dec_{i}_hidden_state_current")
         return feed_dictionary
 
+    def feed_test_dic(self, input_data, state_noise):
+        feed_dictionary = {self.input_placeholder: input_data}
+        for i in range(len(self.encoding_layers_dim)):
+            feed_dictionary[getattr(self, f"enc_{i}_cell_state")] = np.random.normal(
+                getattr(self, f"enc_{i}_test_cell_state_current").copy(), np.abs(np.mean(np.mean(
+                    getattr(self, f"enc_{i}_test_cell_state_current")
+                )) * state_noise)
+            )
+            feed_dictionary[getattr(self, f"enc_{i}_hidden_state")] = np.random.normal(
+                getattr(self, f"enc_{i}_test_hidden_state_current").copy(), np.abs(np.mean(np.mean(
+                    getattr(self, f"enc_{i}_test_cell_state_current")
+                )) * state_noise)
+            )
+            feed_dictionary[getattr(self, f"dec_{i}_cell_state")] = np.random.normal(
+                getattr(self, f"dec_{i}_test_cell_state_current").copy(), np.abs(np.mean(np.mean(
+                    getattr(self, f"dec_{i}_test_cell_state_current")
+                )) * state_noise)
+            )
+            feed_dictionary[getattr(self, f"dec_{i}_hidden_state")] = np.random.normal(
+                getattr(self, f"dec_{i}_test_hidden_state_current").copy(), np.abs(np.mean(np.mean(
+                    getattr(self, f"dec_{i}_test_cell_state_current")
+                )) * state_noise)
+            )
+        return feed_dictionary
+
+    def feed_val_dic(self, input_data, state_noise):
+        feed_dictionary = {self.input_placeholder: input_data}
+        for i in range(len(self.encoding_layers_dim)):
+            feed_dictionary[getattr(self, f"enc_{i}_cell_state")] = np.random.normal(
+                getattr(self, f"enc_{i}_test_cell_state_current").copy(),
+                np.abs(getattr(self, f"enc_{i}_test_cell_state_current") * state_noise)
+            )
+            feed_dictionary[getattr(self, f"enc_{i}_hidden_state")] = np.random.normal(
+                getattr(self, f"enc_{i}_test_hidden_state_current").copy(),
+                np.abs(getattr(self, f"enc_{i}_test_cell_state_current") * state_noise)
+            )
+            feed_dictionary[getattr(self, f"dec_{i}_cell_state")] = np.random.normal(
+                getattr(self, f"dec_{i}_test_cell_state_current").copy(),
+                np.abs(getattr(self, f"dec_{i}_test_cell_state_current") * state_noise)
+            )
+            feed_dictionary[getattr(self, f"dec_{i}_hidden_state")] = np.random.normal(
+                getattr(self, f"dec_{i}_test_hidden_state_current").copy(),
+                np.abs(getattr(self, f"dec_{i}_test_cell_state_current") * state_noise)
+            )
+        return feed_dictionary
+
     def run_update_step(self, sess: tf.Session, input_data: np.array):
         """
         forward + backward pass of the module architecture. Weights are updated.
@@ -185,13 +252,27 @@ class LSTMEncoderDecoder:
                                            self.truncated_backprop_length,
                                            self.n_features]
         """
-        _, reconstruction_loss = sess.run(
-            [self.train_op, self.reconstruction_loss],
+
+        run_list = [self.train_op, self.reconstruction_loss]
+        for i in range(len(self.encoding_layers_dim)):
+            run_list.append(getattr(self, f"enc_{i}_current_state"))
+            run_list.append(getattr(self, f"dec_{i}_current_state"))
+
+        out_list = sess.run(
+            run_list,
             feed_dict=self.feed_dic(input_data=input_data)
         )
+
+        reconstruction_loss = out_list[1]
+        for i in range(len(self.encoding_layers_dim)):
+            setattr(self, f"enc_{i}_cell_state_current", out_list[i+2][0])
+            setattr(self, f"enc_{i}_hidden_state_current", out_list[i+2][1])
+            setattr(self, f"dec_{i}_cell_state_current", out_list[i+3][0])
+            setattr(self, f"dec_{i}_hidden_state_current", out_list[i+3][1])
+
         return reconstruction_loss
 
-    def run_val_step(self, sess: tf.Session, input_data: np.array):
+    def run_val_step(self, sess: tf.Session, input_data: np.array, state_noise, update=True):
         """
         produce the loss obtained from a forward pass using input data. Weights are NOT updated.
 
@@ -199,13 +280,27 @@ class LSTMEncoderDecoder:
                                            self.truncated_backprop_length,
                                            self.n_features]
         """
-        reconstruction_loss = sess.run(
-            self.reconstruction_loss,
-            feed_dict=self.feed_dic(input_data=input_data)
+        run_list = [self.reconstruction_loss]
+        for i in range(len(self.encoding_layers_dim)):
+            run_list.append(getattr(self, f"enc_{i}_current_state"))
+            run_list.append(getattr(self, f"dec_{i}_current_state"))
+
+        out_list = sess.run(
+            run_list,
+            feed_dict=self.feed_val_dic(input_data=input_data, state_noise=state_noise)
         )
+
+        reconstruction_loss = out_list[0]
+        if update:
+            for i in range(len(self.encoding_layers_dim)):
+                setattr(self, f"enc_{i}_test_cell_state_current", out_list[i+1][0])
+                setattr(self, f"enc_{i}_test_hidden_state_current", out_list[i+1][1])
+                setattr(self, f"dec_{i}_test_cell_state_current", out_list[i+2][0])
+                setattr(self, f"dec_{i}_test_hidden_state_current", out_list[i+2][1])
+
         return reconstruction_loss
 
-    def reconstruct(self, sess: tf.Session, input_data: np.array):
+    def reconstruct(self, sess: tf.Session, input_data: np.array, update_state=True):
         """
         produce the reconstruction output of the module upon being fed the input data. Weights are NOT updated.
 
@@ -213,12 +308,27 @@ class LSTMEncoderDecoder:
                                            self.truncated_backprop_length,
                                            self.n_features]
         """
-        output_data = sess.run(
-            self.output_series,
+
+        run_list = [self.output_series]
+        for i in range(len(self.encoding_layers_dim)):
+            run_list.append(getattr(self, f"enc_{i}_current_state"))
+            run_list.append(getattr(self, f"dec_{i}_current_state"))
+
+        out_list = sess.run(
+            run_list,
             feed_dict=self.feed_dic(input_data=input_data)
         )
         # reshaping the output data so that it is the same shape as the numpy array fed as input_data
+        output_data = out_list[0]
         output_data = np.stack(output_data, axis=1)
+
+        if update_state:
+            for i in range(len(self.encoding_layers_dim)):
+                setattr(self, f"enc_{i}_test_cell_state_current", out_list[i+1][0])
+                setattr(self, f"enc_{i}_test_hidden_state_current", out_list[i+1][1])
+                setattr(self, f"dec_{i}_test_cell_state_current", out_list[i+2][0])
+                setattr(self, f"dec_{i}_test_hidden_state_current", out_list[i+2][1])
+
         return output_data
 
     def encode(self, sess: tf.Session, input_data: np.array):
@@ -257,6 +367,61 @@ class LSTMEncoderDecoder:
               colorama.Style.RESET_ALL)
         self.saver.restore(sess, ckpt_ae.model_checkpoint_path)
 
+    def reset_cells(self, sequence_reset):
+        """
+        Initialize the new sequences with a hidden state of zeros, the continuing sequences get assigned the previous hidden state.
+
+        *this function is adapted from the reset_cells method of the SocialVRNN class
+        """
+        if np.any(sequence_reset):
+            for sequence_idx in range(sequence_reset.shape[0]):
+                if sequence_reset[sequence_idx] == 1:
+                    for i, size in enumerate(self.encoding_layers_dim):
+                        enc_layer_cell = getattr(self, f"enc_{i}_cell_state_current")
+                        enc_layer_cell[sequence_idx, :] = np.zeros([1, size])
+                        setattr(self, f"enc_{i}_cell_state_current", enc_layer_cell)
+                        enc_layer_hidden = getattr(self, f"enc_{i}_hidden_state_current")
+                        enc_layer_hidden[sequence_idx, :] = np.zeros([1, size])
+                        setattr(self, f"enc_{i}_hidden_state_current", enc_layer_hidden)
+                    for i, size in enumerate(reversed(self.encoding_layers_dim)):
+                        dec_layer_cell = getattr(self, f"dec_{i}_cell_state_current")
+                        dec_layer_cell[sequence_idx, :] = np.zeros([1, size])
+                        setattr(self, f"dec_{i}_cell_state_current", dec_layer_cell)
+                        dec_layer_hidden = getattr(self, f"dec_{i}_hidden_state_current")
+                        dec_layer_hidden[sequence_idx, :] = np.zeros([1, size])
+                        setattr(self, f"dec_{i}_hidden_state_current", dec_layer_hidden)
+
+    def reset_test_cells(self, sequence_reset):
+        """
+        Initialize the new sequences with a hidden state of zeros, the continuing sequences get assigned the previous hidden state.
+
+        *this function is adapted from the reset_cells method of the SocialVRNN class
+        """
+        if np.any(sequence_reset):
+            for sequence_idx in range(sequence_reset.shape[0]):
+                if sequence_reset[sequence_idx] == 1:
+                    for i, size in enumerate(self.encoding_layers_dim):
+                        enc_layer_cell = getattr(self, f"enc_{i}_test_cell_state_current")
+                        enc_layer_cell[sequence_idx, :] = np.zeros([1, size])
+                        setattr(self, f"enc_{i}_test_cell_state_current", enc_layer_cell)
+                        enc_layer_hidden = getattr(self, f"enc_{i}_test_hidden_state_current")
+                        enc_layer_hidden[sequence_idx, :] = np.zeros([1, size])
+                        setattr(self, f"enc_{i}_test_hidden_state_current", enc_layer_hidden)
+                    for i, size in enumerate(reversed(self.encoding_layers_dim)):
+                        dec_layer_cell = getattr(self, f"dec_{i}_test_cell_state_current")
+                        dec_layer_cell[sequence_idx, :] = np.zeros([1, size])
+                        setattr(self, f"dec_{i}_test_cell_state_current", dec_layer_cell)
+                        dec_layer_hidden = getattr(self, f"dec_{i}_test_hidden_state_current")
+                        dec_layer_hidden[sequence_idx, :] = np.zeros([1, size])
+                        setattr(self, f"dec_{i}_test_hidden_state_current", dec_layer_hidden)
+
+    def update_test_hidden_state(self):
+        for i in range(len(self.encoding_layers_dim)):
+            setattr(self, f"enc_{i}_test_cell_state_current", getattr(self, f"enc_{i}_cell_state_current").copy())
+            setattr(self, f"enc_{i}_test_hidden_state_current", getattr(self, f"enc_{i}_hidden_state_current").copy())
+            setattr(self, f"dec_{i}_test_cell_state_current", getattr(self, f"dec_{i}_cell_state_current").copy())
+            setattr(self, f"dec_{i}_test_hidden_state_current", getattr(self, f"dec_{i}_hidden_state_current").copy())
+
 
 def train_LSTM_ED_module():
     """
@@ -268,17 +433,16 @@ def train_LSTM_ED_module():
     import pickle as pkl
     import json
 
-    num_steps = 10000       # CHANGE
-    log_freq = 10
-
     args = src.train_WIP.parse_args()
-    args.encoding_layers_dim = [32]
-    args.exp_num = 0
+
+    num_steps = args.total_training_steps
+    log_freq = 10
+    plot_block = False
 
     model_name = "LSTM_ED_module"
 
-    save_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.exp_num}"))
-    results_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.exp_num}/results"))
+    save_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.lstmed_exp_num}"))
+    results_path = os.path.join(save_path, "results")
 
     print(colorama.Fore.GREEN +
           f"Creating folder to save model parameters in:\n{save_path}" +
@@ -297,6 +461,8 @@ def train_LSTM_ED_module():
     session = tf.Session()
     lstm_ae_module = LSTMEncoderDecoder(args=args)
 
+    lstm_ae_module.describe()
+
     # initializing weights
     session.run(tf.global_variables_initializer())
     lstm_ae_module.initialize_random_weights(sess=session)
@@ -308,20 +474,27 @@ def train_LSTM_ED_module():
     for step in range(num_steps):
         _, batch_vel, _, _, _, _, _, _, _, _ = data_prep.getBatch()
 
+        lstm_ae_module.reset_cells(data_prep.sequence_reset)
+
         loss = lstm_ae_module.run_update_step(sess=session, input_data=batch_vel)
         train_losses.append(loss.item())
 
         if step % log_freq == 0:
             testbatch = data_prep.getTestBatch()
-            val_loss = lstm_ae_module.run_val_step(sess=session, input_data=testbatch["batch_vel"])
+
+            lstm_ae_module.reset_test_cells(data_prep.val_sequence_reset)
+
+            val_loss = lstm_ae_module.run_val_step(sess=session,
+                                                   input_data=testbatch["batch_vel"],
+                                                   state_noise=testbatch["state_noise"])
             val_losses.append(val_loss.item())
 
-            log = f"step {str(step).ljust(10)}| Training Loss: {loss:.4f} | Validation Loss: {val_loss:.4f}"
+            log = f"step {str(step).ljust(10)}| Training Loss: {loss:.6f} | Validation Loss: {val_loss:.6f}"
 
             if val_loss.item() < best_loss:
                 lstm_ae_module.save_model(sess=session, path=save_path, step=step)
                 best_loss = val_loss.item()
-                log += "| Saved"
+                log += " | Saved"
 
             print(log)
 
@@ -329,15 +502,18 @@ def train_LSTM_ED_module():
 
     yhat = lstm_ae_module.reconstruct(sess=session, input_data=batch_vel)
 
-    print()
-    print('---Predicted---')
-    print(np.round(yhat, 3))
-    print('---Actual---')
-    print(np.round(batch_vel, 3))
+    # print()
+    # print('---Predicted---')
+    # print(np.round(yhat, 3))
+    # print('---Actual---')
+    # print(np.round(batch_vel, 3))
+
+    plt.rcParams["figure.figsize"] = (16, 12)
+    fig_1 = plt.figure("Reconstruction")
     plt.scatter(np.arange(yhat.size), yhat.flatten(), label="Prediction", marker="x")
     plt.scatter(np.arange(batch_vel.size), batch_vel.flatten(), label="Ground Truth", s=40, facecolors="none", edgecolors='r')
     plt.legend()
-    plt.show(block=False)
+    plt.savefig(os.path.join(results_path, "reconstruction.png"))
 
     output_dict = {"train_losses": train_losses,
                    "val_losses": val_losses,
@@ -351,6 +527,13 @@ def train_LSTM_ED_module():
         json.dump(output_dict, file)
     with open(os.path.join(results_path, "results.pkl"), 'wb') as file:
         pkl.dump(output_dict, file, protocol=2)
+
+    fig_2 = plt.figure("Loss Graph")
+    plt.plot(list(range(0, num_steps, log_freq)), val_losses, label="Val Loss")
+    plt.plot(list(range(0, num_steps)), train_losses, label="Train Loss")
+    plt.legend()
+    plt.savefig(os.path.join(results_path, "loss_graph.png"))
+    plt.show(block=plot_block)
 
 
 def work_with_toy_data():
@@ -397,11 +580,11 @@ def work_with_toy_data():
     print(f"shape of timeseries batch:\n{X.shape}\n")
 
     args = argparse.Namespace()
-    args.input_state_dim = 1
-    args.prev_horizon = 1       # --> such that combined with input_state_dim, n_features becomes 2
     args.batch_size = 5
     args.truncated_backprop_length = 3
     args.encoding_layers_dim = [128, 64]
+    args.n_features = 2
+    args.lstmed_exp_num = 0
 
     print(f"instantiating the LSTM Encoder Decoder using the following arguments:")
     for k, v in vars(args).items():

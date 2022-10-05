@@ -31,21 +31,10 @@
 # python3 train_try_2.py --exp_num 444023 --scenario 'real_world/zara_01' --query_agent_ae_optimizer 'RMSProp' --query_agent_ae_encoding_layers 10 6 --query_agent_ae_latent_space_dim 2;
 # python3 train_try_2.py --exp_num 444024 --scenario 'real_world/zara_02' --query_agent_ae_optimizer 'RMSProp' --query_agent_ae_encoding_layers 10 6 --query_agent_ae_latent_space_dim 2;
 
-# python3 train_WIP.py --exp_num 4000 --others_info relative --total_training_steps 20000 --print_freq 40;
-# python3 train_WIP.py --model_name SocialVRNN --exp_num 4001 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
-# python3 train_WIP.py --model_name SocialVRNN_AE --exp_num 4001 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
-# python3 train_WIP.py --model_name SocialVRNN_AE --exp_num 9000 --others_info relative --total_training_steps 20000 --print_freq 40 --warmstart_model true;
+python3 models/LSTM_ED_module.py --lstmed_exp_num 10 --total_training_steps 5000 --scenario 'real_world/ewap_dataset/seq_hotel';
+python3 models/LSTM_ED_module.py --lstmed_exp_num 10 --total_training_steps 5000 --scenario 'real_world/ewap_dataset/seq_eth';
+python3 models/LSTM_ED_module.py --lstmed_exp_num 10 --total_training_steps 5000 --scenario 'real_world/st';
+python3 models/LSTM_ED_module.py --lstmed_exp_num 10 --total_training_steps 5000 --scenario 'real_world/zara_01';
+python3 models/LSTM_ED_module.py --lstmed_exp_num 10 --total_training_steps 5000 --scenario 'real_world/zara_02';
 
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_hotel' --exp_num 5000 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_hotel' --exp_num 5001 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_eth' --exp_num 5002 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/ewap_dataset/seq_eth' --exp_num 5003 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/st' --exp_num 5004 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/st' --exp_num 5005 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 5006 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 5007 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_02' --exp_num 5008 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn false;
-python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_02' --exp_num 5009 --others_info relative --total_training_steps 20000 --print_freq 40 --freeze_grid_cnn true;
 
-# python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 4444 --others_info relative --total_training_steps 800 --print_freq 20;
-# python3 train_WIP.py --model_name SocialVRNN --scenario 'real_world/zara_01' --exp_num 5555 --others_info relative --total_training_steps 800 --print_freq 20;
