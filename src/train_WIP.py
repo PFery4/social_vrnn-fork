@@ -1,5 +1,4 @@
 import sys
-
 sys.path.append('../')
 import json
 import importlib
@@ -51,6 +50,8 @@ def parse_args():
     # LSTM Encoder/Decoder
     lstmed_encoding_layers = [32]
     lstmed_exp_num = 0
+    pretrained_query_agent_module_path = f"../trained_models/LSTM_ED_module/0"
+    freeze_query_agent_module = False
 
     # Occupancy grid CNN
     freeze_grid_cnn = True
@@ -111,6 +112,7 @@ def parse_args():
     diversity_update = False
     predict_positions = False
     warm_start_convnet = True
+    warm_start_query_agent_module = False
     debug_plotting = False
 
     # Dataset division
@@ -142,7 +144,7 @@ def parse_args():
                         default='LSTM')
     parser.add_argument('--warmstart_model', help='Restore from pretained model (default=False).', type=bool,
                         default=warmstart_model)
-    parser.add_argument('--warm_start_convnet', help='Restore from pretained convnet model (default=False).', type=bool,
+    parser.add_argument('--warm_start_convnet', help='Restore from pretained convnet model (default=False).', type=sup.str2bool,
                         default=warm_start_convnet)
     parser.add_argument('--dt', help='Data sampling time (default=0.3).', type=float,
                         default=dt)
@@ -160,7 +162,7 @@ def parse_args():
                         default=beta_rate_init)
     parser.add_argument('--dropout', help='Enable Dropout', type=sup.str2bool,
                         default=dropout)
-    parser.add_argument('--grads_clip', help='Gridient clipping (default=10.0).', type=float,
+    parser.add_argument('--grads_clip', help='Gradient clipping (default=10.0).', type=float,
                         default=grads_clip)
     parser.add_argument('--truncated_backprop_length', help='Backpropagation length during training (default=5).',
                         type=int, default=truncated_backprop_length)
@@ -274,7 +276,7 @@ def parse_args():
                         help='can either be "Adam" of "RMSProp", specifies the optimizer for the Query Agent past trajectory autoencoder',
                         type=str, default=query_agent_ae_optimizer)
     parser.add_argument('--pretrained_qa_ae_path',
-                        help=f'Path to directory that comprises the pre-trained convnet model (default: "{pretrained_qa_ae_path}").',
+                        help=f'Path to directory that comprises the pre-trained past trajectory AE model (default: "{pretrained_qa_ae_path}").',
                         type=str, default=pretrained_qa_ae_path)
     parser.add_argument('--freeze_grid_cnn',
                         help=f'Whether the weights of the occupancy grid CNN module should be frozen while training.',
@@ -290,6 +292,15 @@ def parse_args():
     parser.add_argument('--lstmed_exp_num',
                         help='experiment number for the LSTM Encoder Decoder',
                         type=int, default=lstmed_exp_num)
+    parser.add_argument('--freeze_query_agent_module',
+                        help=f'whether the query agent module should have its weights frozen while training.',
+                        type=sup.str2bool, default=freeze_query_agent_module)
+    parser.add_argument('--pretrained_query_agent_module_path',
+                        help=f'Path to the directory containing the pre-trained LSTM ED model for the query agent (default: {pretrained_query_agent_module_path})',
+                        type=str, default=pretrained_query_agent_module_path)
+    parser.add_argument('--warm_start_query_agent_module',
+                        help='Restore from pretrained query agent module',
+                        type=sup.str2bool, default=warm_start_query_agent_module)
 
     parsed_args = parser.parse_args()
 
@@ -394,15 +405,14 @@ if __name__ == '__main__':
             print(Fore.RED + "Failed to initialized Convnet or Convnet does not exist" + Style.RESET_ALL)
             exit()
 
-        # Load Query Agent Past Trajectory autoencoder TODO: check correct implementation
+        # Load Query Agent Past Trajectory autoencoder
         try:
-            # warmstart_query_agent_ae = False
             if args.model_name == "SocialVRNN_AE" and not args.warmstart_model:
                 model.warmstart_query_agent_ae(args=args, sess=sess)
-            # elif args.model_name == "SocialVRNN_AE" and not warmstart_query_agent_ae:
-            #     model.traj_ae.initialize_random_weights(sess=sess)
+            if args.model_name == "SocialVRNN_LSTM_ED" and args.warm_start_query_agent_module and not args.warmstart_model:
+                model.warmstart_query_agent_module(args=args, sess=sess)
         except:
-            print(Fore.RED + "Failed to initialize Query Agent Past Trajectory Autoencoder" + Style.RESET_ALL)
+            print(Fore.RED + "Failed to initialize Query Agent Past Trajectory Module" + Style.RESET_ALL)
             exit()
 
 
@@ -430,18 +440,14 @@ if __name__ == '__main__':
             start_time_loop = time.time()
 
             # WIPCODE
-            # weight_str = 'auto_encoder/Conv/weights:0'
-            # print(Fore.BLUE + f"{weight_str.ljust(45)}: " +
-            #       str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)) +
-            #       Style.RESET_ALL)
-            # weight_str = 'auto_encoder/Conv2d_transpose_2/weights:0'
-            # print(Fore.BLUE + f"{weight_str.ljust(45)}: " +
-            #       str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)) +
-            #       Style.RESET_ALL)
-            # weight_str = 'query_agent_auto_encoder/encode0/weights:0'
-            # print(Fore.BLUE + f"{weight_str.ljust(45)}: " +
-            #       str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)) +
-            #       Style.RESET_ALL)
+            weight_str = "lstm_encoder_decoder/rnn/basic_lstm_cell_enc_0/kernel:0"
+            print(Fore.BLUE)
+            print(f"{weight_str.ljust(70)}: " +
+                  str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)))
+            weight_str = 'auto_encoder/Conv_1/weights:0'
+            print(Fore.BLUE + f"{weight_str.ljust(70)}: " +
+                  str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)))
+            print(Style.RESET_ALL)
             # WIPCODE
 
             # Get Next Batch of Data
@@ -533,11 +539,12 @@ if __name__ == '__main__':
                     best_loss = curr_loss
                     print(Fore.LIGHTCYAN_EX + 'Step {}: Saving model under {}'.format(step, save_path))
 
-
         write_summary(training_loss[-1], args)
-        full_path = args.model_path + '/final-model.ckpt'
-        # model.full_saver.save(sess, full_path)
-        print('Saved final model under "{}"'.format(full_path))
+        final_model_filename = args.model_path + '/final-model.ckpt'
+        model.full_saver.save(sess, final_model_filename)
+        print(Fore.LIGHTCYAN_EX +
+              f"Saved final model under:\n{final_model_filename}" +
+              Style.RESET_ALL)
 
         if args.tensorboard_logging:
             model.summary_writer.close()

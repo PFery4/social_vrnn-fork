@@ -20,10 +20,11 @@ class LSTMEncoderDecoder:
         initialise an instance of the LSTMEncoderDecoder class.
 
         <args> must contain:
+            - lstmed_exp_num                : the experiment number for this particular training run
             - batch_size                    : the batch size with which the model will be working
             - truncated_backprop_length     : time truncation factor for unrolling the LSTM for training
-            - n_features                    : number of features contained within one training instance
-            - lstmed_encoding_layers        : encoding LSTM dimensions for the encoder (decoder is symmetrical)
+            - lstmed_n_features             : number of features contained within one training instance
+            - lstmed_encoding_layers        : list of encoding LSTM dimensions for the encoder (decoder is symmetrical)
         """
 
         # defining Filesystem relevant parameters
@@ -62,6 +63,7 @@ class LSTMEncoderDecoder:
 
         # Creating the architecture
         self.encoding_layers_dim = args.lstmed_encoding_layers
+        self.embedding_state_size = args.lstmed_encoding_layers[-1]
         for i, dim_size in enumerate(self.encoding_layers_dim):
             setattr(self, f"enc_{i}_cell_state_current", np.zeros([self.batch_size, dim_size]))
             setattr(self, f"enc_{i}_hidden_state_current", np.zeros([self.batch_size, dim_size]))
@@ -160,19 +162,13 @@ class LSTMEncoderDecoder:
         prints the relevant (hyper)parameters which define the architecture.
         """
         print(colorama.Fore.YELLOW +
-              "LSTM Autoencoder hyperparameters / info:" +
-              colorama.Style.RESET_ALL)
+              "LSTM Autoencoder hyperparameters / info:")
         for k, v in self.info_dict().items():
-            print(colorama.Fore.YELLOW +
-                  f"{k.ljust(45)}| {v}" +
-                  colorama.Style.RESET_ALL)
-        print(colorama.Fore.YELLOW +
-              "\nLayers" +
-              colorama.Style.RESET_ALL)
+            print(f"{k.ljust(45)}| {v}")
+        print("\nLayers")
         for var in self.model_var_list:
-            print(colorama.Fore.YELLOW +
-                  var +
-                  colorama.Style.RESET_ALL)
+            print(var)
+        print(colorama.Style.RESET_ALL)
         return None
 
     def initialize_random_weights(self, sess: tf.Session):
@@ -244,6 +240,13 @@ class LSTMEncoderDecoder:
             )
         return feed_dictionary
 
+    def cell_states_list(self):
+        states_list = []
+        for i in range(len(self.encoding_layers_dim)):
+            states_list.append(getattr(self, f"enc_{i}_current_state"))
+            states_list.append(getattr(self, f"dec_{i}_current_state"))
+        return states_list
+
     def run_update_step(self, sess: tf.Session, input_data: np.array):
         """
         forward + backward pass of the module architecture. Weights are updated.
@@ -254,9 +257,7 @@ class LSTMEncoderDecoder:
         """
 
         run_list = [self.train_op, self.reconstruction_loss]
-        for i in range(len(self.encoding_layers_dim)):
-            run_list.append(getattr(self, f"enc_{i}_current_state"))
-            run_list.append(getattr(self, f"dec_{i}_current_state"))
+        run_list.extend(self.cell_states_list())
 
         out_list = sess.run(
             run_list,
@@ -264,41 +265,46 @@ class LSTMEncoderDecoder:
         )
 
         reconstruction_loss = out_list[1]
-        for i in range(len(self.encoding_layers_dim)):
-            setattr(self, f"enc_{i}_cell_state_current", out_list[i+2][0])
-            setattr(self, f"enc_{i}_hidden_state_current", out_list[i+2][1])
-            setattr(self, f"dec_{i}_cell_state_current", out_list[i+3][0])
-            setattr(self, f"dec_{i}_hidden_state_current", out_list[i+3][1])
+        states_list = out_list[2:]
+        self.update_states(states_list)
 
         return reconstruction_loss
 
-    def run_val_step(self, sess: tf.Session, input_data: np.array, state_noise, update=True):
+    def update_states(self, out_list):
+        """
+        out_list is the list of cell and hidden state value obtained after performing a session run.
+        """
+        for i in range(len(self.encoding_layers_dim)):
+            setattr(self, f"enc_{i}_cell_state_current", out_list[i][0])
+            setattr(self, f"enc_{i}_hidden_state_current", out_list[i][1])
+            setattr(self, f"dec_{i}_cell_state_current", out_list[i+1][0])
+            setattr(self, f"dec_{i}_hidden_state_current", out_list[i+1][1])
+
+    def run_val_step(self, sess: tf.Session, feed_dict_validation, update=True):
         """
         produce the loss obtained from a forward pass using input data. Weights are NOT updated.
-
-        input data is a np array of shape [self.batch_size,
-                                           self.truncated_backprop_length,
-                                           self.n_features]
         """
         run_list = [self.reconstruction_loss]
-        for i in range(len(self.encoding_layers_dim)):
-            run_list.append(getattr(self, f"enc_{i}_current_state"))
-            run_list.append(getattr(self, f"dec_{i}_current_state"))
+        run_list.extend(self.cell_states_list())
 
         out_list = sess.run(
             run_list,
-            feed_dict=self.feed_val_dic(input_data=input_data, state_noise=state_noise)
+            feed_dict=feed_dict_validation
         )
 
         reconstruction_loss = out_list[0]
+        states_list = out_list[1:]
         if update:
-            for i in range(len(self.encoding_layers_dim)):
-                setattr(self, f"enc_{i}_test_cell_state_current", out_list[i+1][0])
-                setattr(self, f"enc_{i}_test_hidden_state_current", out_list[i+1][1])
-                setattr(self, f"dec_{i}_test_cell_state_current", out_list[i+2][0])
-                setattr(self, f"dec_{i}_test_hidden_state_current", out_list[i+2][1])
+            self.update_test_states(states_list)
 
         return reconstruction_loss
+
+    def update_test_states(self, out_list):
+        for i in range(len(self.encoding_layers_dim)):
+            setattr(self, f"enc_{i}_test_cell_state_current", out_list[i][0])
+            setattr(self, f"enc_{i}_test_hidden_state_current", out_list[i][1])
+            setattr(self, f"dec_{i}_test_cell_state_current", out_list[i+1][0])
+            setattr(self, f"dec_{i}_test_hidden_state_current", out_list[i+1][1])
 
     def reconstruct(self, sess: tf.Session, input_data: np.array, update_state=True):
         """
@@ -362,12 +368,16 @@ class LSTMEncoderDecoder:
         assert os.path.exists(path), f"Path to load the model does not exist:\n{path}"
 
         ckpt_ae = tf.train.get_checkpoint_state(path)
-        print(colorama.Fore.CYAN +
-              f"Loading LSTM Encoder Decoder from:\n{ckpt_ae.model_checkpoint_path}" +
-              colorama.Style.RESET_ALL)
-        self.saver.restore(sess, ckpt_ae.model_checkpoint_path)
 
-    def reset_cells(self, sequence_reset):
+        # print(ckpt_ae.model_checkpoint_path)
+        # print(ckpt_ae.all_model_checkpoint_paths[-2])     <-- latest checkpoint that is NOT the final one (final one hasn't been saved because of best loss)
+
+        print(colorama.Fore.CYAN +
+              f"Loading LSTM Encoder Decoder from:\n{ckpt_ae.all_model_checkpoint_paths[-2]}" +
+              colorama.Style.RESET_ALL)
+        self.saver.restore(sess, ckpt_ae.all_model_checkpoint_paths[-2])
+
+    def reset_cells(self, sequence_reset) -> None:
         """
         Initialize the new sequences with a hidden state of zeros, the continuing sequences get assigned the previous hidden state.
 
@@ -391,7 +401,7 @@ class LSTMEncoderDecoder:
                         dec_layer_hidden[sequence_idx, :] = np.zeros([1, size])
                         setattr(self, f"dec_{i}_hidden_state_current", dec_layer_hidden)
 
-    def reset_test_cells(self, sequence_reset):
+    def reset_test_cells(self, sequence_reset) -> None:
         """
         Initialize the new sequences with a hidden state of zeros, the continuing sequences get assigned the previous hidden state.
 
@@ -429,6 +439,7 @@ def train_LSTM_ED_module():
     """
     import src.train_WIP
     import src.data_utils.DataHandlerLSTM
+    import src.data_utils.plot_utils
     import matplotlib.pyplot as plt
     import pickle as pkl
     import json
@@ -437,23 +448,25 @@ def train_LSTM_ED_module():
 
     num_steps = args.total_training_steps
     log_freq = 10
-    plot_block = False
+    plot_show = False
+    save = False
 
     model_name = "LSTM_ED_module"
-
-    save_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.lstmed_exp_num}"))
+    save_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.lstmed_exp_num}"))
     results_path = os.path.join(save_path, "results")
 
-    print(colorama.Fore.GREEN +
-          f"Creating folder to save model parameters in:\n{save_path}" +
-          colorama.Style.RESET_ALL)
-    assert not os.path.exists(save_path)
-    os.makedirs(save_path)
-    print(colorama.Fore.GREEN +
-          f"Creating folder to save training results in:\n{results_path}" +
-          colorama.Style.RESET_ALL)
-    assert not os.path.exists(results_path)
-    os.makedirs(results_path)
+    if save:
+        print(colorama.Fore.GREEN +
+              f"Creating folder to save model parameters in:\n{save_path}" +
+              colorama.Style.RESET_ALL)
+        assert not os.path.exists(save_path)
+        os.makedirs(save_path)
+        print(colorama.Fore.GREEN +
+              f"Creating folder to save training results in:\n{results_path}" +
+              colorama.Style.RESET_ALL)
+        assert not os.path.exists(results_path)
+        os.makedirs(results_path)
 
     data_prep = src.data_utils.DataHandlerLSTM.DataHandlerLSTM(args=args)
     data_prep.processData()
@@ -461,11 +474,15 @@ def train_LSTM_ED_module():
     session = tf.Session()
     lstm_ae_module = LSTMEncoderDecoder(args=args)
 
-    lstm_ae_module.describe()
-
     # initializing weights
     session.run(tf.global_variables_initializer())
-    lstm_ae_module.initialize_random_weights(sess=session)
+    # lstm_ae_module.initialize_random_weights(sess=session)
+    load_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.lstmed_exp_num}")
+    )
+    lstm_ae_module.load_model(sess=session, path=load_path)
+
+    lstm_ae_module.describe()
 
     train_losses = []
     val_losses = []
@@ -485,20 +502,24 @@ def train_LSTM_ED_module():
             lstm_ae_module.reset_test_cells(data_prep.val_sequence_reset)
 
             val_loss = lstm_ae_module.run_val_step(sess=session,
-                                                   input_data=testbatch["batch_vel"],
-                                                   state_noise=testbatch["state_noise"])
+                                                   feed_dict_validation=lstm_ae_module.feed_val_dic(
+                                                       input_data=testbatch["batch_vel"],
+                                                       state_noise=testbatch["state_noise"]
+                                                   ))
+
             val_losses.append(val_loss.item())
 
-            log = f"step {str(step).ljust(10)}| Training Loss: {loss:.6f} | Validation Loss: {val_loss:.6f}"
+            log = f"step {str(step).ljust(10)} | Training Loss: {loss:.6f} | Validation Loss: {val_loss:.6f}"
 
-            if val_loss.item() < best_loss:
+            if val_loss.item() < best_loss and save:
                 lstm_ae_module.save_model(sess=session, path=save_path, step=step)
-                best_loss = val_loss.item()
                 log += " | Saved"
+                best_loss = val_loss.item()
 
             print(log)
 
-    lstm_ae_module.save_model(sess=session, path=save_path, step=step, filename="final-model.ckpt")
+    if save:
+        lstm_ae_module.save_model(sess=session, path=save_path, step=step, filename="final-model.ckpt")
 
     yhat = lstm_ae_module.reconstruct(sess=session, input_data=batch_vel)
 
@@ -513,7 +534,8 @@ def train_LSTM_ED_module():
     plt.scatter(np.arange(yhat.size), yhat.flatten(), label="Prediction", marker="x")
     plt.scatter(np.arange(batch_vel.size), batch_vel.flatten(), label="Ground Truth", s=40, facecolors="none", edgecolors='r')
     plt.legend()
-    plt.savefig(os.path.join(results_path, "reconstruction.png"))
+    if save:
+        plt.savefig(os.path.join(results_path, "reconstruction.png"))
 
     output_dict = {"train_losses": train_losses,
                    "val_losses": val_losses,
@@ -521,19 +543,31 @@ def train_LSTM_ED_module():
                    "log_freq": log_freq,
                    "dataset": os.path.basename(data_prep.scenario)}
 
-    with open(os.path.join(save_path, "parameters.json"), 'w') as file:
-        json.dump(lstm_ae_module.info_dict(), file, indent=0)
-    with open(os.path.join(results_path, "results.json"), 'w') as file:
-        json.dump(output_dict, file)
-    with open(os.path.join(results_path, "results.pkl"), 'wb') as file:
-        pkl.dump(output_dict, file, protocol=2)
+    param_dict = lstm_ae_module.info_dict()
+    param_dict.update(
+        {
+            "scenario": args.scenario,
+            "total_training_steps": args.total_training_steps
+        }
+    )
+
+    if save:
+        with open(os.path.join(save_path, "parameters.json"), 'w') as file:
+            json.dump(param_dict, file, indent=4)
+        with open(os.path.join(results_path, "results.json"), 'w') as file:
+            json.dump(output_dict, file)
+        with open(os.path.join(results_path, "results.pkl"), 'wb') as file:
+            pkl.dump(output_dict, file, protocol=2)
 
     fig_2 = plt.figure("Loss Graph")
     plt.plot(list(range(0, num_steps, log_freq)), val_losses, label="Val Loss")
     plt.plot(list(range(0, num_steps)), train_losses, label="Train Loss")
     plt.legend()
-    plt.savefig(os.path.join(results_path, "loss_graph.png"))
-    plt.show(block=plot_block)
+    if save:
+        plt.savefig(os.path.join(results_path, "loss_graph.png"))
+
+    if plot_show:
+        plt.show()
 
 
 def work_with_toy_data():
