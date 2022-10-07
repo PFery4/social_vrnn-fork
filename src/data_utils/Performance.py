@@ -13,7 +13,7 @@ def compute_trajectory_prediction_mse(args,ground_truth, predictions):
 	"""
 		inputs:
 			args: model parameters
-			ground_truth: list of groudn truth velocities in absolute frame
+			ground_truth: list of ground truth velocities in absolute frame
 			predictions: list of predicted velocities 		"""
 	avg_mse = 0
 	cnt = 0
