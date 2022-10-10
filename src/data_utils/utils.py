@@ -3,6 +3,7 @@ import csv
 import sys
 import pickle as pkl
 import argparse
+import numpy as np
 
 sys.path.append('../src/data_utils')
 if sys.version_info[0] < 3:
@@ -57,18 +58,20 @@ def write_summary(training_loss, args):
 					 args.learning_rate_init, args.grads_clip, args.n_mixtures])
 
 
-def write_results_summary(mse, fde, avg_div, args, test_args):
+def write_results_summary(mse_list, fde_list, avg_div_list, args, test_args):
 	if not os.path.isfile(test_args.model_name + "_summary.csv"):
 		with open(test_args.model_name + "_summary.csv", 'w') as csvfile:
 			# Write header
 			writer = csv.writer(csvfile, delimiter=',', quoting=csv.QUOTE_MINIMAL)
 			writer.writerow(["Model name", "Dataset", "Ped Info Size",
 			                 "Batch size", "MSE", "FDE","Diversity",
-			                 "dt", "Prediction Horizon", "Previous Steps", "tbpt","Test Dataset","Others Info"])
+			                 "dt", "Prediction Horizon", "Previous Steps", "tbpt","Test Dataset","Others Info",
+							 "min_MSE", "min_FDE", "min_Div", "max_MSE", "max_FDE", "max_Div"])
 			writer.writerow(
 				[args.model_name+ "_" + str(args.exp_num), args.scenario, args.pedestrian_vector_dim, args.batch_size,
-				 mse, fde,avg_div, args.dt,
-				 args.prediction_horizon, args.prev_horizon, args.truncated_backprop_length,test_args.scenario,args.others_info])
+				 np.mean(mse_list), np.mean(fde_list), np.mean(avg_div_list), args.dt,
+				 args.prediction_horizon, args.prev_horizon, args.truncated_backprop_length,test_args.scenario,args.others_info,
+				 np.min(mse_list), np.min(fde_list), np.min(avg_div_list), np.max(mse_list), np.max(fde_list), np.max(avg_div_list)])
 
 	else:
 		with open(test_args.model_name + "_summary.csv", 'r') as readFile:
@@ -81,16 +84,18 @@ def write_results_summary(mse, fde, avg_div, args, test_args):
 					if i == args.exp_num + 1:
 						writer.writerow(
 							[args.model_name + "_" + str(args.exp_num), args.scenario, args.pedestrian_vector_dim, args.batch_size,
-							 mse, fde, avg_div,args.dt,
-							 args.prediction_horizon, args.prev_horizon, args.truncated_backprop_length, test_args.scenario,args.others_info])
+							 np.mean(mse_list), np.mean(fde_list), np.mean(avg_div_list),args.dt,
+							 args.prediction_horizon, args.prev_horizon, args.truncated_backprop_length, test_args.scenario,args.others_info,
+							 np.min(mse_list), np.min(fde_list), np.min(avg_div_list), np.max(mse_list), np.max(fde_list), np.max(avg_div_list)])
 					else:
 						writer.writerow(lines[i])
 			else:
 				writer.writerows(lines)
 				writer.writerow(
 					[args.model_name + "_" + str(args.exp_num), args.scenario, args.pedestrian_vector_dim, args.batch_size,
-					 mse, fde,avg_div, args.dt,
-					 args.prediction_horizon, args.prev_horizon, args.truncated_backprop_length, test_args.scenario,args.others_info])
+					 np.mean(mse_list), np.mean(fde_list), np.mean(avg_div_list), args.dt,
+					 args.prediction_horizon, args.prev_horizon, args.truncated_backprop_length, test_args.scenario,args.others_info,
+					 np.min(mse_list), np.min(fde_list), np.min(avg_div_list), np.max(mse_list), np.max(fde_list), np.max(avg_div_list)])
 
 def write_keras_results_summary(loss, args):
 	if not os.path.isfile(args.model_name + "_summary.csv"):

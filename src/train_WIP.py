@@ -440,14 +440,14 @@ if __name__ == '__main__':
             start_time_loop = time.time()
 
             # WIPCODE
-            weight_str = "lstm_encoder_decoder/rnn/basic_lstm_cell_enc_0/kernel:0"
-            print(Fore.BLUE)
-            print(f"{weight_str.ljust(70)}: " +
-                  str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)))
-            weight_str = 'auto_encoder/Conv_1/weights:0'
-            print(Fore.BLUE + f"{weight_str.ljust(70)}: " +
-                  str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)))
-            print(Style.RESET_ALL)
+            # weight_str = "lstm_encoder_decoder/rnn/basic_lstm_cell_enc_0/kernel:0"
+            # print(Fore.BLUE)
+            # print(f"{weight_str.ljust(70)}: " +
+            #       str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)))
+            # weight_str = 'auto_encoder/Conv_1/weights:0'
+            # print(Fore.BLUE + f"{weight_str.ljust(70)}: " +
+            #       str(get_weight_value(session=sess, weight_str=weight_str, n_weights=10)))
+            # print(Style.RESET_ALL)
             # WIPCODE
 
             # Get Next Batch of Data

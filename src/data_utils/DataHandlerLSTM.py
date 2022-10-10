@@ -107,8 +107,8 @@ class DataHandlerLSTM():
 			self.batch_vel = np.zeros([self.batch_size, self.tbpl, self.input_state_dim * (self.prev_horizon + 1)])
 		self.batch_x = np.zeros([self.batch_size, self.tbpl, self.input_dim*(self.prev_horizon+1)])  # data fed for training
 		self.batch_grid = np.zeros([self.batch_size, self.tbpl,
-																int(np.ceil(self.submap_width / self.submap_resolution)),
-																int(np.ceil(self.submap_height / self.submap_resolution))])
+									int(np.ceil(self.submap_width / self.submap_resolution)),
+									int(np.ceil(self.submap_height / self.submap_resolution))])
 		if self.others_info == "relative":
 			self.pedestrian_grid = np.zeros([self.batch_size, self.tbpl, self.pedestrian_vector_dim*self.n_other_agents])
 			self.val_pedestrian_grid = np.zeros([self.batch_size, self.tbpl, self.pedestrian_vector_dim*self.n_other_agents])

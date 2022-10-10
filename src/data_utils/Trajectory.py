@@ -3,7 +3,7 @@ from scipy import interpolate
 
 class Trajectory():
   
-  def __init__(self, time_vec = np.zeros([0]), pose_vec = np.zeros([0,3]), vel_vec = np.zeros([0,3]), goal = np.zeros([1,2])):
+  def __init__(self, time_vec=np.zeros([0]), pose_vec=np.zeros([0,3]), vel_vec=np.zeros([0,3]), goal=np.zeros([1,2])):
     self.time_vec = time_vec    # timesteps in [ns]
     self.pose_vec = pose_vec    # [x, y, heading]
     self.vel_vec = vel_vec      # [vx, vy, omega]

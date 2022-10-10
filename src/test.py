@@ -90,18 +90,7 @@ if __name__ == '__main__':
 
     args = model_parameters["args"]
 
-
     print_args(args)
-
-    # The following modifications are no longer necessary, delete this once a full run of
-    # train + test has been shown to be successful.
-    #
-    # args.model_name = "SocialVRNN"
-    # args.model_path = '../trained_models/' + args.model_name + "/" + str(args.exp_num)
-    # args.log_dir = args.model_path + '/log'
-
-    # with open(args.model_path + '/model_parameters.json', 'w') as f:
-    #     json.dump(args.__dict__, f)
 
     # change some args because we are doing inference
     truncated_backprop_length = args.truncated_backprop_length
@@ -159,19 +148,14 @@ if __name__ == '__main__':
 
     with tf.Session(config=config) as sess:
         model.warmstart_model(args, sess)
-        try:
-            if args.freeze_grid_cnn:
-                model.warmstart_convnet(args, sess)
-            else:
-                print("No warmstart of convnet: Model has been trained without CNN frozen weights")
-        except:
-            print("No model.warmstart_convnet(args, sess)")
 
-        for exp_id in range(np.minimum(test_args.num_test_sequences, len(data_prep.trajectory_set) - 1)):
+        for traj_id in range(int(len(data_prep.trajectory_set) * data_prep.train_set),
+                             len(data_prep.trajectory_set)):
+            print(traj_id)
             predictions = []
             traj_likelihood = []
-            # sample a trajectory id for testing
-            traj_id = random.randint(0, len(data_prep.trajectory_set) - 1)
+            # sample a trajectory id for testing --> No longer of question
+            # traj_id = random.randint(0, len(data_prep.trajectory_set) - 1)
             batch_x, batch_vel, batch_pos, batch_goal, batch_grid, other_agents_info, batch_target, batch_end_pos, other_agents_pos, traj = data_prep.getTrajectoryAsBatch(
                 traj_id,
                 freeze=test_args.freeze_other_agents)  # trajectory_set random.randint(0, len(data_prep.dataset) - 1)
@@ -198,7 +182,7 @@ if __name__ == '__main__':
             y_pred_series = np.zeros([0, args.n_mixtures * args.prediction_horizon * args.output_pred_state_dim])
 
             batch_y.append(batch_target)
-            model.reset_test_cells(np.ones((args.batch_size)))
+            model.reset_test_cells(np.ones(args.batch_size))
             cell_state_list = []
             cell_ped_list = []
             cell_concat_list = []
@@ -217,7 +201,7 @@ if __name__ == '__main__':
                     else:
                         batch_y_pred = deepcopy(batch_vel)
                         batch_y_pred[:, :, 2:] = y_model_pred[:, :, 2:]
-                dict = {"batch_x": batch_x,
+                input_dict = {"batch_x": batch_x,
                         "batch_vel": batch_vel,
                         "batch_pos": batch_pos,
                         "batch_grid": batch_grid,
@@ -229,7 +213,7 @@ if __name__ == '__main__':
                         "concat_noise": 0.0,
                         "other_agents_pos": [other_agents_pos]
                         }
-                feed_dict_ = model.feed_test_dic(**dict)
+                feed_dict_ = model.feed_test_dic(**input_dict)
 
                 # Append to logging series
                 x_input_series = np.append(x_input_series, batch_x[:, step, :], axis=0)
@@ -241,9 +225,9 @@ if __name__ == '__main__':
                 y_model_pred, likelihood = model.predict(sess, feed_dict_, True)
 
                 # Backup cell states for later analysis
-                cell_state_list.append(model.test_cell_state_current[0, :])
+                # cell_state_list.append(model.test_cell_state_current[0, :])
                 # cell_ped_list.append(model.test_cell_state_current_lstm_ped[0, :])
-                cell_concat_list.append(model.test_cell_state_current_lstm_concat[0, :])
+                # cell_concat_list.append(model.test_cell_state_current_lstm_concat[0, :])
 
                 # Rotate predictions to global frame
                 if args.rotated_grid:
@@ -258,7 +242,7 @@ if __name__ == '__main__':
 
                 # If sample more than one trajectory from the model
                 for sample_id in range(test_args.n_samples - 1):
-                    dict = {"batch_x": batch_x,
+                    input_dict = {"batch_x": batch_x,
                             "batch_vel": batch_vel,
                             "batch_pos": batch_pos,
                             "batch_grid": batch_grid,
@@ -271,7 +255,7 @@ if __name__ == '__main__':
                             "concat_noise": test_args.noise_cell_concat,
                             "other_agents_pos": [other_agents_pos]
                             }
-                    feed_dict_ = model.feed_test_dic(**dict)
+                    feed_dict_ = model.feed_test_dic(**input_dict)
                     y_model_pred, likelihood = model.predict(sess, feed_dict_, test_args.update_state)
                     samples.append(y_model_pred[:, 0, :])
 
@@ -320,13 +304,22 @@ if __name__ == '__main__':
         print("Recorder is done!")
     else:
         print("Performance tests")
-        pred_error, pred_error_summary_lstm = compute_trajectory_prediction_mse(args, trajectories, all_predictions)
+        # print("TRAJECTORIES")
+        # print(len(trajectories))
+        # print(type(trajectories[0]))
+        # print(len(all_predictions))
+        # print(type(all_predictions[0]))
+        # print(zblu)
+        mse_dict = compute_trajectory_prediction_mse(args, trajectories, all_predictions)
+
+        pred_error = mse_dict["avg_mse"]
+        pred_error_summary_lstm = mse_dict["mse_list"]
         pred_fde, pred_error_summary_lstm_fde = compute_trajectory_fde(args, trajectories, all_predictions)
         diversity, diversity_summary = compute_2_wasserstein(args, all_predictions)
         args.scenario = training_scenario
         args.truncated_backprop_length = truncated_backprop_length
-        write_results_summary(np.mean(pred_error_summary_lstm), np.mean(pred_error_summary_lstm_fde),
-                              np.mean(diversity_summary), args, test_args)
+        # write_results_summary(pred_error_summary_lstm, pred_error_summary_lstm_fde,
+        #                       diversity_summary, args, test_args)
         print(
             Fore.LIGHTBLUE_EX + "\nMSE: {:01.2f}, FDE: {:01.2f}, DIVERSITY: {:01.2f}".format(
                 np.mean(pred_error_summary_lstm),

@@ -408,11 +408,13 @@ if test_args.record:
 		print("Recorder is done!")
 else:
 	print("Performance tests")
-	pred_error, pred_error_summary_lstm = compute_trajectory_prediction_mse(args, trajectories, all_predictions)
+	mse_dict = compute_trajectory_prediction_mse(args, trajectories, all_predictions)
+	pred_error = mse_dict["avg_mse"]
+	pred_error_summary_lstm = mse_dict["mse_list"]
 	pred_fde, pred_error_summary_lstm_fde = compute_trajectory_fde(args, trajectories, all_predictions)
 	diversity, diversity_summary = compute_2_wasserstein(args, all_predictions)
 	args.scenario = training_scenario
 	args.truncated_backprop_length = truncated_backprop_length
-	write_results_summary(np.mean(pred_error_summary_lstm), np.mean(pred_error_summary_lstm_fde), np.mean(diversity_summary), args, test_args)
+	write_results_summary(pred_error_summary_lstm, pred_error_summary_lstm_fde, diversity_summary, args, test_args)
 	print(
 		Fore.LIGHTBLUE_EX + "\nMSE: {:01.2f}, FDE: {:01.2f}, DIVERSITY: {:01.2f}".format(np.mean(pred_error_summary_lstm), np.mean(pred_error_summary_lstm_fde),np.mean(diversity_summary))+Style.RESET_ALL)
