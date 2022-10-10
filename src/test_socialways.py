@@ -409,9 +409,11 @@ if test_args.record:
 else:
 	print("Performance tests")
 	mse_dict = compute_trajectory_prediction_mse(args, trajectories, all_predictions)
-	pred_error = mse_dict["avg_mse"]
-	pred_error_summary_lstm = mse_dict["mse_list"]
-	pred_fde, pred_error_summary_lstm_fde = compute_trajectory_fde(args, trajectories, all_predictions)
+	pred_error = mse_dict["avg_min_mse"]
+	pred_error_summary_lstm = mse_dict["avg_min_mse_list"]
+	fde_dict = compute_trajectory_fde(args, trajectories, all_predictions)
+	pred_fde = fde_dict["avg_min_fde"]
+	pred_error_summary_lstm_fde = fde_dict["avg_min_fde_list"]
 	diversity, diversity_summary = compute_2_wasserstein(args, all_predictions)
 	args.scenario = training_scenario
 	args.truncated_backprop_length = truncated_backprop_length

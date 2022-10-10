@@ -32,9 +32,14 @@ def compute_trajectory_prediction_mse(args, ground_truth, predictions):
     # print(type(predictions[0]))
     # print(len(predictions[0]))
 
-    avg_mse = 0
+    avg_min_mse = 0
+    avg_mean_mse = 0
+    avg_max_mse = 0
     cnt = 0
-    mse_list = []
+    avg_min_mse_list = []
+    avg_mean_mse_list = []
+    avg_max_mse_list = []
+
     for pred, gt in zip(predictions, ground_truth):
 
         # # WIPCODE
@@ -46,7 +51,9 @@ def compute_trajectory_prediction_mse(args, ground_truth, predictions):
         # print(len(gt))
         # # WIPCODE
 
-        avg_mse = 0
+        avg_min_mse = 0
+        avg_mean_mse = 0
+        avg_max_mse = 0
         cnt = 0
         # compute average per trajectory
         for t in range(len(pred)):
@@ -62,6 +69,8 @@ def compute_trajectory_prediction_mse(args, ground_truth, predictions):
             pred_t = pred[t][0]
 
             min_error = np.zeros((pred_t.shape[0]))
+            mean_error = np.zeros((pred_t.shape[0]))
+            max_error = np.zeros((pred_t.shape[0]))
 
             # # WIPCODE
             # print("\nreal_vel_global_frame")
@@ -121,16 +130,26 @@ def compute_trajectory_prediction_mse(args, ground_truth, predictions):
 
                 # taking the minimum across mixtures
                 min_error[sample_id] = min(error)
+                mean_error[sample_id] = np.mean(error)
+                max_error[sample_id] = max(error)
 
             # taking the minimum across samples of the trajectory
-            avg_mse = (avg_mse * cnt + min(min_error)) / (cnt + 1)
+            avg_min_mse = (avg_min_mse * cnt + min(min_error)) / (cnt + 1)
+            avg_mean_mse = (avg_mean_mse * cnt + np.mean(mean_error)) / (cnt + 1)
+            avg_max_mse = (avg_max_mse * cnt + max(max_error)) / (cnt + 1)
 
             cnt += 1
-        mse_list.append(avg_mse)
+        avg_min_mse_list.append(avg_min_mse)
+        avg_mean_mse_list.append(avg_mean_mse)
+        avg_max_mse_list.append(avg_max_mse)
 
     out_dict = {
-        "avg_mse": avg_mse,
-        "mse_list": mse_list
+        "avg_min_mse": avg_min_mse,
+        "avg_min_mse_list": avg_min_mse_list,
+        "avg_mean_mse": avg_mean_mse,
+        "avg_mean_mse_list": avg_mean_mse_list,
+        "avg_max_mse": avg_max_mse,
+        "avg_max_mse_list": avg_max_mse_list
     }
     return out_dict
 
@@ -140,13 +159,20 @@ def compute_trajectory_fde(args, ground_truth, predictions):
 		inputs:
 			args: model parameters
 			ground_truth: list of groudn truth velocities in absolute frame
-			predictions: list of predicted velocities 		"""
-    avg_fde = 0
+			predictions: list of predicted velocities
+	"""
+    avg_min_fde = 0
+    avg_mean_fde = 0
+    avg_max_fde = 0
     cnt = 0
-    avg_fde_list = []
+    avg_min_fde_list = []
+    avg_mean_fde_list = []
+    avg_max_fde_list = []
     real_traj_global_frame = np.zeros((args.prediction_horizon, args.output_dim))
     for pred, gt in zip(predictions, ground_truth):
-        avg_fde = 0
+        avg_min_fde = 0
+        avg_mean_fde = 0
+        avg_max_fde = 0
         cnt = 0
         # compute average per trajectory
         for t in range(len(pred)):
@@ -158,6 +184,8 @@ def compute_trajectory_fde(args, ground_truth, predictions):
             vel_pred = np.zeros((args.prediction_horizon, args.output_dim))
             error = 0
             pred_t = pred[t][0]
+            # Why performing this check over n_mixtures here? PF question
+            # In the case that n_mixtures is 1, we iterate over a range of 1 sample_id. Why???
             if args.n_mixtures <= 1:
                 # plot predicted trajectory global frame
                 for sample_id in range(1):
@@ -172,10 +200,19 @@ def compute_trajectory_fde(args, ground_truth, predictions):
                 traj_pred = sup.path_from_vel(initial_pos=np.array([0, 0]), pred_vel=np.squeeze(pred_vel_global_frame),
                                               dt=args.dt)
                 error = np.linalg.norm(real_traj_global_frame[-1, :] - traj_pred[-1, :])
-                avg_fde = (avg_fde * cnt + error) / (cnt + 1)
+
+                # only one error, min max and mean are the same
+                avg_min_fde = (avg_min_fde * cnt + error) / (cnt + 1)
+                avg_mean_fde = (avg_mean_fde * cnt + error) / (cnt + 1)
+                avg_max_fde = (avg_max_fde * cnt + error) / (cnt + 1)
                 cnt += 1
             else:
+                # pred_t.shape[0] is the number of samples taken from the variational autoencoder. each sample results
+                # in n_mixtures predictions. each of those mixtures provide a mean mu (specified in the x and y
+                # coordinates on the ground plane), which is used as the prediction of the velocity.
                 min_error = np.zeros((pred_t.shape[0]))
+                mean_error = np.zeros((pred_t.shape[0]))
+                max_error = np.zeros((pred_t.shape[0]))
                 for sample_id in range(pred_t.shape[0]):
                     error = np.zeros((args.n_mixtures))
                     for mix_idx in range(args.n_mixtures):
@@ -194,10 +231,27 @@ def compute_trajectory_fde(args, ground_truth, predictions):
                         traj_pred = sup.path_from_vel(initial_pos=np.array([0, 0]), pred_vel=vel_pred, dt=args.dt)
                         error[mix_idx] = np.linalg.norm(real_traj_global_frame[-1, :] - traj_pred[-1, :])
                     min_error[sample_id] = min(error)
-                avg_fde = (min(min_error) + avg_fde * cnt) / (cnt + 1)
+                    mean_error[sample_id] = np.mean(error)
+                    max_error[sample_id] = max(error)
+
+                avg_min_fde = (min(min_error) + avg_min_fde * cnt) / (cnt + 1)
+                avg_mean_fde = (np.mean(mean_error) + avg_mean_fde * cnt) / (cnt + 1)
+                avg_max_fde = (max(max_error) + avg_max_fde * cnt) / (cnt + 1)
                 cnt += 1
-            avg_fde_list.append(avg_fde)
-    return avg_fde, avg_fde_list
+
+            avg_min_fde_list.append(avg_min_fde)
+            avg_mean_fde_list.append(avg_mean_fde)
+            avg_max_fde_list.append(avg_max_fde)
+
+    out_dict = {
+        "avg_min_fde": avg_min_fde,
+        "avg_min_fde_list": avg_min_fde_list,
+        "avg_mean_fde": avg_mean_fde,
+        "avg_mean_fde_list": avg_mean_fde_list,
+        "avg_max_fde": avg_max_fde,
+        "avg_max_fde_list": avg_max_fde_list
+    }
+    return out_dict
 
 
 def compute_2_wasserstein(args, predictions):

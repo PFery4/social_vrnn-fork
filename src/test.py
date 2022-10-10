@@ -149,7 +149,6 @@ if __name__ == '__main__':
 
         for traj_id in range(int(len(data_prep.trajectory_set) * data_prep.train_set),
                              len(data_prep.trajectory_set)):
-            print(traj_id)
             predictions = []
             traj_likelihood = []
             # sample a trajectory id for testing --> No longer of question
@@ -302,26 +301,17 @@ if __name__ == '__main__':
         print("Recorder is done!")
     else:
         print("Performance tests")
-        # print("TRAJECTORIES")
-        # print(len(trajectories))
-        # print(type(trajectories[0]))
-        # print(len(all_predictions))
-        # print(type(all_predictions[0]))
-        # print(zblu)
         mse_dict = compute_trajectory_prediction_mse(args, trajectories, all_predictions)
-
-        pred_error = mse_dict["avg_mse"]
-        pred_error_summary_lstm = mse_dict["mse_list"]
-        pred_fde, pred_error_summary_lstm_fde = compute_trajectory_fde(args, trajectories, all_predictions)
+        min_ade_summary = mse_dict["avg_min_mse_list"]
+        fde_dict = compute_trajectory_fde(args, trajectories, all_predictions)
+        min_fde_summary = fde_dict["avg_min_fde_list"]
         diversity, diversity_summary = compute_2_wasserstein(args, all_predictions)
         args.scenario = training_scenario
         args.truncated_backprop_length = truncated_backprop_length
-        # write_results_summary(pred_error_summary_lstm, pred_error_summary_lstm_fde,
-        #                       diversity_summary, args, test_args)
-        print(
-            Fore.LIGHTBLUE_EX + "\nMSE: {:01.2f}, FDE: {:01.2f}, DIVERSITY: {:01.2f}".format(
-                np.mean(pred_error_summary_lstm),
-                np.mean(
-                    pred_error_summary_lstm_fde),
-                np.mean(
-                    diversity_summary)) + Style.RESET_ALL)
+        write_results_summary(mse_dict, fde_dict,
+                              diversity_summary, args, test_args)
+        print(Fore.LIGHTBLUE_EX)
+        print(f"\nMSE: {np.mean(min_ade_summary):01.2f}, "
+              f"FDE: {np.mean(min_fde_summary):01.2f}, "
+              f"DIVERSITY: {np.mean(diversity_summary):01.2f}")
+        print(Style.RESET_ALL)
