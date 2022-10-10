@@ -1,5 +1,6 @@
+import os.path
 import sys
-sys.path.append('../')
+sys.path.append(os.path.abspath(os.path.join(__file__, '../')))
 import json
 import importlib
 from src.data_utils import DataHandlerLSTM as dhlstm

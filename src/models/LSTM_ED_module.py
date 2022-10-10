@@ -3,9 +3,6 @@
 Implementation of an LSTM Encoder Decoder. It will be used to process the velocity input features of the Query Agent.
 
 """
-import sys
-sys.path.append("../")
-sys.path.append("../../")
 import argparse
 import os.path
 import tensorflow as tf
@@ -437,6 +434,8 @@ def train_LSTM_ED_module():
     """
     A toy example to see how the LSTM_ED module can be trained using the datahandler.
     """
+    import sys
+    sys.path.append(os.path.abspath(os.path.join(__file__, '../../..')))
     import src.train_WIP
     import src.data_utils.DataHandlerLSTM
     import src.data_utils.plot_utils
@@ -568,7 +567,6 @@ def train_LSTM_ED_module():
 
     if plot_show:
         plt.show()
-
 
 def work_with_toy_data():
     """

@@ -1,9 +1,7 @@
 import sys
 import os
-
 import train
-
-sys.path.append('../')
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 import argparse
 import pylab as pl
