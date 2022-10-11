@@ -412,9 +412,6 @@ if __name__ == '__main__':
             model.warmstart_query_agent_ae(args=args, sess=sess)
         elif args.model_name == "SocialVRNN_LSTM_ED" and args.warm_start_query_agent_module and not args.warmstart_model:
             model.warmstart_query_agent_module(args=args, sess=sess)
-        else:
-            print(Fore.RED + "Failed to initialize Query Agent Past Trajectory Module" + Style.RESET_ALL)
-            exit()
 
         # if the training was interrupted load last training step index
         try:
