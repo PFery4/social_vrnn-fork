@@ -65,7 +65,6 @@ class PastTrajAE:
         elif self.optimizer_name == 'RMSProp':
             self.optimizer = tf.train.RMSPropOptimizer(learning_rate=1e-4)
 
-
         assert self.latent_space_dim < self.training_instance_dim, "Latent Space dimension larger than that of the input."
 
         # Creating the input placeholder

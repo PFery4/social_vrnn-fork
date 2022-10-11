@@ -83,7 +83,6 @@ def write_results_summary(mse_dict, fde_dict, avg_div_list, args, test_args):
             # Write header
             writer = csv.writer(csvfile, delimiter=',', quoting=csv.QUOTE_MINIMAL)
             writer.writerow(title_row)
-            writer.writerow(new_row)
 
     with open(file_name, 'a') as csvfile:
         writer = csv.writer(csvfile, delimiter=',', quoting=csv.QUOTE_MINIMAL)

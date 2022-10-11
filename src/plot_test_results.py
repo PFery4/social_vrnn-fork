@@ -1,3 +1,4 @@
+import glob
 import json
 import os.path
 import sys
@@ -123,6 +124,52 @@ def ablation_study():
             plt.legend()
     plt.show()
 
+def final_losses_LSTM_networks():
+    """
+    Produce the final loss values from training experiments contained in exp_num_list. This function works on
+    the LSTM encoder decoder module, LSTM_ED_module.
+    """
+    model_name = "LSTM_ED_module"
+    exp_num_list = [30, 31, 32, 33, 34]
+
+    for exp_num in exp_num_list:
+        path = os.path.abspath(os.path.join(here, f"../../trained_models/{model_name}/{exp_num}"))
+
+        with open(os.path.join(path, "parameters.json"), 'r') as file:
+            param_json = json.load(file)
+        with open(os.path.join(path, "results/results.json"), 'r') as file:
+            results_json = json.load(file)
+
+        print(f"Experiment {exp_num}\n")
+        print("Parameters:")
+        for k, v in param_json.items():
+            print(k, v)
+        print('dataset', results_json['dataset'])
+        print("\nLosses:")
+        print("Best Validation Loss:        ", results_json["best_validation_loss"])
+        print("Corresponding Training Loss: ", results_json["train_loss_at_best_val_loss"])
+        print("Occuring timestep:           ", results_json["best_val_loss_timestep"])
+        print("\n\n")
+
+
+def make_defaults_csv():
+    import src.data_utils.DataHandlerLSTM
+    import src.train_WIP
+    import csv
+
+    filename = os.path.abspath(os.path.join(here, "../args_defaults.csv"))
+    print(filename)
+
+    args = src.train_WIP.parse_args()
+    src.train_WIP.print_args(args)
+    # dataprep = src.data_utils.DataHandlerLSTM.DataHandlerLSTM()
+    with open(filename, "w") as f:
+        writer = csv.writer(f, delimiter=";", quoting=csv.QUOTE_MINIMAL)
+        for k, v in vars(args).items():
+            writer.writerow([k, v])
+
 
 if __name__ == '__main__':
-    ablation_study()
+    # ablation_study()
+    # final_losses_LSTM_networks()
+    make_defaults_csv()

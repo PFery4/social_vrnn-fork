@@ -69,4 +69,11 @@
 # python3 train_WIP.py --model_name SocialVRNN_LSTM_ED --exp_num 304 --n_mixtures 3 --others_info relative --total_training_steps 20000 --print_freq 40 --warm_start_convnet false --freeze_grid_cnn false --warm_start_query_agent_module false --freeze_query_agent_module false --scenario 'real_world/zara_02' --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/24";
 # python3 train_WIP.py --model_name SocialVRNN_LSTM_ED --exp_num 404 --n_mixtures 3 --others_info relative --total_training_steps 20000 --print_freq 40 --warm_start_convnet true --freeze_grid_cnn true --warm_start_query_agent_module true --freeze_query_agent_module true --scenario 'real_world/zara_02' --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/24";
 
+python3 models/LSTM_ED_module.py --lstmed_exp_num 30 --total_training_steps 5000 --scenario 'real_world/ewap_dataset/seq_hotel';
+python3 models/LSTM_ED_module.py --lstmed_exp_num 31 --total_training_steps 5000 --scenario 'real_world/ewap_dataset/seq_eth';
+python3 models/LSTM_ED_module.py --lstmed_exp_num 32 --total_training_steps 5000 --scenario 'real_world/st';
+python3 models/LSTM_ED_module.py --lstmed_exp_num 33 --total_training_steps 5000 --scenario 'real_world/zara_01';
+python3 models/LSTM_ED_module.py --lstmed_exp_num 34 --total_training_steps 5000 --scenario 'real_world/zara_02';
+
+
 

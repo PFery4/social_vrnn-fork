@@ -251,7 +251,7 @@ class NetworkModel():
                 self.learning_rate = tf.train.exponential_decay(self.learning_rate_init, self.step, decay_steps=10000,
                                                                 decay_rate=0.9, staircase=False)
 
-                self.beta = (tf.tanh((tf.to_float(self.step) - 20000) / 5000) + 1) / 2
+                self.beta = (tf.tanh((tf.to_float(self.step) - 20000) / 5000) + 1) / 2      # Does not correspond with article
 
                 prediction_loss_list = []
                 loss_list = []

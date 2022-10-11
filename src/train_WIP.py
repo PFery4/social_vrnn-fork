@@ -67,6 +67,7 @@ def parse_args():
     x_dim = 512
     fc_hidden_unit_size = 256
     learning_rate_init = 0.001
+    # learning_rate_init = 10**(-4)           # According to the article
     beta_rate_init = 0.01
     keep_prob = 1.0
     dropout = False
@@ -407,15 +408,13 @@ if __name__ == '__main__':
             exit()
 
         # Load Query Agent Past Trajectory autoencoder
-        try:
-            if args.model_name == "SocialVRNN_AE" and not args.warmstart_model:
-                model.warmstart_query_agent_ae(args=args, sess=sess)
-            if args.model_name == "SocialVRNN_LSTM_ED" and args.warm_start_query_agent_module and not args.warmstart_model:
-                model.warmstart_query_agent_module(args=args, sess=sess)
-        except:
+        if args.model_name == "SocialVRNN_AE" and not args.warmstart_model:
+            model.warmstart_query_agent_ae(args=args, sess=sess)
+        elif args.model_name == "SocialVRNN_LSTM_ED" and args.warm_start_query_agent_module and not args.warmstart_model:
+            model.warmstart_query_agent_module(args=args, sess=sess)
+        else:
             print(Fore.RED + "Failed to initialize Query Agent Past Trajectory Module" + Style.RESET_ALL)
             exit()
-
 
         # if the training was interrupted load last training step index
         try:

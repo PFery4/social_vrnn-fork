@@ -151,7 +151,7 @@ class LSTMEncoderDecoder:
         info_dict = {"batch_size": self.batch_size,
                      "truncated_backprop_length": self.truncated_backprop_length,
                      "n_features": self.n_features,
-                     "encoding_layers_dim": self.encoding_layers_dim,}
+                     "encoding_layers_dim": self.encoding_layers_dim}
         return info_dict
 
     def describe(self) -> None:
@@ -448,7 +448,7 @@ def train_LSTM_ED_module():
     num_steps = args.total_training_steps
     log_freq = 10
     plot_show = False
-    save = False
+    save = True
 
     model_name = "LSTM_ED_module"
     save_path = os.path.abspath(
@@ -475,17 +475,21 @@ def train_LSTM_ED_module():
 
     # initializing weights
     session.run(tf.global_variables_initializer())
-    # lstm_ae_module.initialize_random_weights(sess=session)
-    load_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.lstmed_exp_num}")
-    )
-    lstm_ae_module.load_model(sess=session, path=load_path)
+    lstm_ae_module.initialize_random_weights(sess=session)
+
+    # THIS IS FOR LOADING AN ALREADY TRAINED ARCHITECTURE
+    # load_path = os.path.abspath(
+    #     os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.lstmed_exp_num}")
+    # )
+    # lstm_ae_module.load_model(sess=session, path=load_path)
 
     lstm_ae_module.describe()
 
     train_losses = []
     val_losses = []
     best_loss = float('inf')
+    train_loss_at_best_loss = float('inf')
+    best_loss_idx = 0
     # _, batch_vel, _, _, _, _, _, _, _, _ = data_prep.getBatch()
     for step in range(num_steps):
         _, batch_vel, _, _, _, _, _, _, _, _ = data_prep.getBatch()
@@ -514,6 +518,8 @@ def train_LSTM_ED_module():
                 lstm_ae_module.save_model(sess=session, path=save_path, step=step)
                 log += " | Saved"
                 best_loss = val_loss.item()
+                train_loss_at_best_loss = loss.item()
+                best_loss_idx = step
 
             print(log)
 
@@ -540,7 +546,10 @@ def train_LSTM_ED_module():
                    "val_losses": val_losses,
                    "num_steps": num_steps,
                    "log_freq": log_freq,
-                   "dataset": os.path.basename(data_prep.scenario)}
+                   "dataset": os.path.basename(data_prep.scenario),
+                   "best_validation_loss": best_loss,
+                   "train_loss_at_best_val_loss": train_loss_at_best_loss,
+                   "best_val_loss_timestep": best_loss_idx}
 
     param_dict = lstm_ae_module.info_dict()
     param_dict.update(

@@ -8,7 +8,7 @@ else:
 class VariationalRNNCell(tf.contrib.rnn.RNNCell):
     """Variational RNN cell."""
 
-    def __init__(self,args, x_dim, y_dim,h_dim ,z_dim = 100):
+    def __init__(self, args, x_dim, y_dim, h_dim, z_dim=100):
         self.n_h = h_dim
         self.n_x = x_dim
         self.n_z = z_dim
@@ -17,7 +17,7 @@ class VariationalRNNCell(tf.contrib.rnn.RNNCell):
         self.n_enc_hidden = z_dim
         self.n_dec_hidden = y_dim
         self.n_prior_hidden = z_dim
-        self.lstm = tf.contrib.rnn.LSTMCell(self.n_x, state_is_tuple=True,reuse=tf.AUTO_REUSE)
+        self.lstm = tf.contrib.rnn.LSTMCell(self.n_x, state_is_tuple=True, reuse=tf.AUTO_REUSE)
         self.args = args
 
     @property
