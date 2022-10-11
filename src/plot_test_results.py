@@ -107,8 +107,10 @@ def ablation_study():
             frame_number = k-1
             ax = axs[frame_number]
             src.data_utils.plot_utils.plot_ADE_FDE_runs(ax, model_name="SocialVRNN_LSTM_ED", exp_num=exp_num)
-            ax.scatter(1, target_ADEs[i], label="Article")
-            ax.scatter(2, target_FDEs[i], label="Article")
+            # ax.scatter(1, target_ADEs[i], c='o', label="Article")
+            # ax.scatter(2, target_FDEs[i], c='o', label="Article")
+            ax.set_xticks([1, 2])
+            ax.set_xticklabels(["ADE", "FDE"])
 
             spacing_1 = 12
             spacing_2 = 8
@@ -170,6 +172,5 @@ def make_defaults_csv():
 
 
 if __name__ == '__main__':
-    # ablation_study()
+    ablation_study()
     # final_losses_LSTM_networks()
-    make_defaults_csv()

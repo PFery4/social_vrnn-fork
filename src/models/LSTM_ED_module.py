@@ -29,8 +29,8 @@ class LSTMEncoderDecoder:
         self.id = args.lstmed_exp_num
         self.save_path = "../trained_models/"
         self.model_name = "LSTMEncoderDecoder"
-        self.model_directory = os.path.abspath(os.path.join(self.save_path, self.model_name))
-        self.full_save_path = os.path.abspath(os.path.join(self.model_directory, str(self.id)))
+        self.model_directory = os.path.join(self.save_path, self.model_name)
+        self.full_save_path = os.path.join(self.model_directory, str(self.id))
 
         # setting up input dimensions
         """
@@ -451,8 +451,9 @@ def train_LSTM_ED_module():
     save = True
 
     model_name = "LSTM_ED_module"
-    save_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.lstmed_exp_num}"))
+
+    # save_path specified relative to src folder
+    save_path = f"../trained_models/{model_name}/{args.lstmed_exp_num}"
     results_path = os.path.join(save_path, "results")
 
     if save:

@@ -1419,18 +1419,34 @@ def plot_ADE_FDE_runs(ax, model_name: str, exp_num: int):
         csvreader = csv.reader(file)
         rows = list(csvreader)
         model_name_colidx = rows[0].index("Model name")
-        mse_colidx = rows[0].index("MSE")
-        fde_colidx = rows[0].index("FDE")
+        min_mse_colidx = rows[0].index("min_MSE")
+        min_fde_colidx = rows[0].index("min_FDE")
+        mean_mse_colidx = rows[0].index("mean_MSE")
+        mean_fde_colidx = rows[0].index("mean_FDE")
+        max_mse_colidx = rows[0].index("max_MSE")
+        max_fde_colidx = rows[0].index("max_FDE")
 
-        mse_lst = []
-        fde_lst = []
+        min_mse_lst = []
+        min_fde_lst = []
+        mean_mse_lst = []
+        mean_fde_lst = []
+        max_mse_lst = []
+        max_fde_lst = []
 
         for row in rows:
             if row[model_name_colidx] != f"{model_name}_{exp_num}":
                 continue
-            mse_lst.append(float(row[mse_colidx]))
-            fde_lst.append(float(row[fde_colidx]))
+            min_mse_lst.append(float(row[min_mse_colidx]))
+            min_fde_lst.append(float(row[min_fde_colidx]))
+            mean_mse_lst.append(float(row[mean_mse_colidx]))
+            mean_fde_lst.append(float(row[mean_fde_colidx]))
+            max_mse_lst.append(float(row[max_mse_colidx]))
+            max_fde_lst.append(float(row[max_fde_colidx]))
 
-        ax.boxplot((mse_lst, fde_lst), labels=("ADE", "FDE"), showfliers=False)
-        ax.scatter([1] * len(mse_lst), mse_lst, label="Own tests")
-        ax.scatter([2] * len(fde_lst), fde_lst, label="Own tests")
+        # ax.boxplot((mse_lst, fde_lst), labels=("ADE", "FDE"), showfliers=False)
+        ax.scatter([1], min_mse_lst[-1], c="g", label="Own: min")
+        ax.scatter([2], min_fde_lst[-1], c="g")
+        ax.scatter([1], mean_mse_lst[-1], c="c", label="Own: mean")
+        ax.scatter([2], mean_fde_lst[-1], c="c")
+        ax.scatter([1], max_mse_lst[-1], c="b", label="Own: max")
+        ax.scatter([2], max_fde_lst[-1], c="b")
