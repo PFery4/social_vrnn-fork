@@ -639,6 +639,7 @@ def work_with_toy_data():
     args.lstmed_encoding_layers = [128, 64]
     args.lstmed_n_features = 2
     args.lstmed_exp_num = 0
+    args.lstmed_reverse_time_prediction = False
 
     print(f"instantiating the LSTM Encoder Decoder using the following arguments:")
     for k, v in vars(args).items():
@@ -667,5 +668,5 @@ def work_with_toy_data():
 
 
 if __name__ == '__main__':
-    # work_with_toy_data()
-    train_LSTM_ED_module()
+    work_with_toy_data()
+    # train_LSTM_ED_module()
