@@ -184,6 +184,7 @@ class LSTMEncoderDecoder:
                                            self.n_features]
         """
         feed_dictionary = {self.input_placeholder: input_data}
+
         for i in range(len(self.encoding_layers_dim)):
             feed_dictionary[getattr(self, f"enc_{i}_cell_state")] = getattr(self, f"enc_{i}_cell_state_current")
             feed_dictionary[getattr(self, f"enc_{i}_hidden_state")] = getattr(self, f"enc_{i}_hidden_state_current")
@@ -238,11 +239,33 @@ class LSTMEncoderDecoder:
         return feed_dictionary
 
     def cell_states_list(self):
+        """
+        Provides a list of the cell states contained within each LSTM block of the module.
+        The cell states are ordered in the list in the order in which the information flows through the network
+        in a forward pass of the module (ie; first encoding layer, then second, [...], second to last decoding layer,
+        last decoding layer).
+        """
         states_list = []
+
+        #Warning, don't merge for loops (order of the state list matters)
         for i in range(len(self.encoding_layers_dim)):
             states_list.append(getattr(self, f"enc_{i}_current_state"))
+        for i in range(len(self.encoding_layers_dim)):
             states_list.append(getattr(self, f"dec_{i}_current_state"))
         return states_list
+
+    def update_states(self, state_list, test_states=False):
+        """
+        out_list is the list of cell and hidden state value obtained after performing a session run. That list of cells
+        corresponds to the formatting of the output of self.cell_states_list()
+        """
+        attr_str = "" if test_states else "test_"
+
+        for i in range(len(self.encoding_layers_dim)):
+            setattr(self, f"enc_{i}_{attr_str}cell_state_current", state_list[i][0])
+            setattr(self, f"enc_{i}_{attr_str}hidden_state_current", state_list[i][1])
+            setattr(self, f"dec_{i}_{attr_str}cell_state_current", state_list[i+len(state_list)//2][0])
+            setattr(self, f"dec_{i}_{attr_str}hidden_state_current", state_list[i+len(state_list)//2][1])
 
     def run_update_step(self, sess: tf.Session, input_data: np.array):
         """
@@ -263,19 +286,10 @@ class LSTMEncoderDecoder:
 
         reconstruction_loss = out_list[1]
         states_list = out_list[2:]
+
         self.update_states(states_list)
 
         return reconstruction_loss
-
-    def update_states(self, out_list):
-        """
-        out_list is the list of cell and hidden state value obtained after performing a session run.
-        """
-        for i in range(len(self.encoding_layers_dim)):
-            setattr(self, f"enc_{i}_cell_state_current", out_list[i][0])
-            setattr(self, f"enc_{i}_hidden_state_current", out_list[i][1])
-            setattr(self, f"dec_{i}_cell_state_current", out_list[i+1][0])
-            setattr(self, f"dec_{i}_hidden_state_current", out_list[i+1][1])
 
     def run_val_step(self, sess: tf.Session, feed_dict_validation, update=True):
         """
@@ -292,16 +306,9 @@ class LSTMEncoderDecoder:
         reconstruction_loss = out_list[0]
         states_list = out_list[1:]
         if update:
-            self.update_test_states(states_list)
+            self.update_states(states_list, test_states=True)
 
         return reconstruction_loss
-
-    def update_test_states(self, out_list):
-        for i in range(len(self.encoding_layers_dim)):
-            setattr(self, f"enc_{i}_test_cell_state_current", out_list[i][0])
-            setattr(self, f"enc_{i}_test_hidden_state_current", out_list[i][1])
-            setattr(self, f"dec_{i}_test_cell_state_current", out_list[i+1][0])
-            setattr(self, f"dec_{i}_test_hidden_state_current", out_list[i+1][1])
 
     def reconstruct(self, sess: tf.Session, input_data: np.array, update_state=True):
         """
@@ -313,9 +320,10 @@ class LSTMEncoderDecoder:
         """
 
         run_list = [self.output_series]
-        for i in range(len(self.encoding_layers_dim)):
-            run_list.append(getattr(self, f"enc_{i}_current_state"))
-            run_list.append(getattr(self, f"dec_{i}_current_state"))
+        # for i in range(len(self.encoding_layers_dim)):
+        #     run_list.append(getattr(self, f"enc_{i}_current_state"))
+        #     run_list.append(getattr(self, f"dec_{i}_current_state"))
+        run_list.extend(self.cell_states_list())
 
         out_list = sess.run(
             run_list,
@@ -325,12 +333,15 @@ class LSTMEncoderDecoder:
         output_data = out_list[0]
         output_data = np.stack(output_data, axis=1)
 
+        states_list = out_list[1:]
+
         if update_state:
-            for i in range(len(self.encoding_layers_dim)):
-                setattr(self, f"enc_{i}_test_cell_state_current", out_list[i+1][0])
-                setattr(self, f"enc_{i}_test_hidden_state_current", out_list[i+1][1])
-                setattr(self, f"dec_{i}_test_cell_state_current", out_list[i+2][0])
-                setattr(self, f"dec_{i}_test_hidden_state_current", out_list[i+2][1])
+            # for i in range(len(self.encoding_layers_dim)):
+            #     setattr(self, f"enc_{i}_test_cell_state_current", out_list[i+1][0])
+            #     setattr(self, f"enc_{i}_test_hidden_state_current", out_list[i+1][1])
+            #     setattr(self, f"dec_{i}_test_cell_state_current", out_list[i+2][0])
+            #     setattr(self, f"dec_{i}_test_hidden_state_current", out_list[i+2][1])
+            self.update_states(states_list, test_states=True)
 
         return output_data
 
@@ -624,8 +635,8 @@ def work_with_toy_data():
     args = argparse.Namespace()
     args.batch_size = 5
     args.truncated_backprop_length = 3
-    args.encoding_layers_dim = [128, 64]
-    args.n_features = 2
+    args.lstmed_encoding_layers = [128, 64]
+    args.lstmed_n_features = 2
     args.lstmed_exp_num = 0
 
     print(f"instantiating the LSTM Encoder Decoder using the following arguments:")
@@ -640,6 +651,8 @@ def work_with_toy_data():
 
     module.initialize_random_weights(sess=session)
 
+    module.describe()
+
     for i in tqdm(range(3000)):
         module.run_update_step(sess=session, input_data=X)
 
@@ -647,11 +660,11 @@ def work_with_toy_data():
 
     print()
     print('---Predicted---')
-    print(np.round(yhat, 3))
+    print(np.round(yhat, 10))
     print('---Actual---')
-    print(np.round(X, 3))
+    print(np.round(X, 10))
 
 
 if __name__ == '__main__':
-    # work_with_toy_data()
-    train_LSTM_ED_module()
+    work_with_toy_data()
+    # train_LSTM_ED_module()

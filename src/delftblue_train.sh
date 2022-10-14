@@ -23,3 +23,4 @@ srun python3 train_WIP.py --model_name SocialVRNN_LSTM_ED --exp_num 1010 --n_mix
 srun python3 train_WIP.py --model_name SocialVRNN_LSTM_ED --exp_num 1011 --n_mixtures 3 --others_info relative --total_training_steps 20000 --print_freq 40 --warm_start_convnet true --freeze_grid_cnn true --warm_start_query_agent_module false --freeze_query_agent_module false --scenario 'real_world/ewap_dataset/seq_eth' --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/21" --normalize_data true > output_1011.log;
 srun python3 train_WIP.py --model_name SocialVRNN_LSTM_ED --exp_num 1012 --n_mixtures 3 --others_info relative --total_training_steps 20000 --print_freq 40 --warm_start_convnet true --freeze_grid_cnn true --warm_start_query_agent_module false --freeze_query_agent_module false --scenario 'real_world/ewap_dataset/seq_eth' --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/21" --diversity_update true > output_1012.log;
 
+

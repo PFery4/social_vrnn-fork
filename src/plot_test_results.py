@@ -173,4 +173,4 @@ def make_defaults_csv():
 
 if __name__ == '__main__':
     ablation_study()
-    # final_losses_LSTM_networks()
+    final_losses_LSTM_networks()
