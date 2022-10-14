@@ -247,7 +247,7 @@ class LSTMEncoderDecoder:
         """
         states_list = []
 
-        #Warning, don't merge for loops (order of the state list matters)
+        # Warning, don't merge for loops (order of the state list matters)
         for i in range(len(self.encoding_layers_dim)):
             states_list.append(getattr(self, f"enc_{i}_current_state"))
         for i in range(len(self.encoding_layers_dim)):
@@ -320,9 +320,6 @@ class LSTMEncoderDecoder:
         """
 
         run_list = [self.output_series]
-        # for i in range(len(self.encoding_layers_dim)):
-        #     run_list.append(getattr(self, f"enc_{i}_current_state"))
-        #     run_list.append(getattr(self, f"dec_{i}_current_state"))
         run_list.extend(self.cell_states_list())
 
         out_list = sess.run(
@@ -336,11 +333,6 @@ class LSTMEncoderDecoder:
         states_list = out_list[1:]
 
         if update_state:
-            # for i in range(len(self.encoding_layers_dim)):
-            #     setattr(self, f"enc_{i}_test_cell_state_current", out_list[i+1][0])
-            #     setattr(self, f"enc_{i}_test_hidden_state_current", out_list[i+1][1])
-            #     setattr(self, f"dec_{i}_test_cell_state_current", out_list[i+2][0])
-            #     setattr(self, f"dec_{i}_test_hidden_state_current", out_list[i+2][1])
             self.update_states(states_list, test_states=True)
 
         return output_data
