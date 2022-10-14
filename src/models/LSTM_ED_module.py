@@ -58,6 +58,9 @@ class LSTMEncoderDecoder:
         self.learning_rate = 1e-3
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
 
+        # Reconstruction specification
+        self.reverse_time_prediction = args.lstmed_reverse_time_prediction
+
         # Creating the architecture
         self.encoding_layers_dim = args.lstmed_encoding_layers
         self.embedding_state_size = args.lstmed_encoding_layers[-1]
@@ -130,6 +133,11 @@ class LSTMEncoderDecoder:
 
             self.output_tensor = tf.stack(self.output_series, axis=1)
 
+            # reversing the order
+            # https://arxiv.org/abs/1502.04681
+            if self.reverse_time_prediction:
+                self.output_tensor = tf.reverse(self.output_tensor, axis=[1])
+
             # checking that the reconstructed tensors are of the same shape as the inputs
             assert all(self.output_series[i].shape.as_list() == self.input_series[i].shape.as_list()
                        for i in range(self.truncated_backprop_length))
@@ -151,7 +159,8 @@ class LSTMEncoderDecoder:
         info_dict = {"batch_size": self.batch_size,
                      "truncated_backprop_length": self.truncated_backprop_length,
                      "n_features": self.n_features,
-                     "encoding_layers_dim": self.encoding_layers_dim}
+                     "encoding_layers_dim": self.encoding_layers_dim,
+                     "reverse_time_prediction": self.reverse_time_prediction}
         return info_dict
 
     def describe(self) -> None:
@@ -450,8 +459,8 @@ def train_LSTM_ED_module():
 
     num_steps = args.total_training_steps
     log_freq = 10
-    plot_show = False
-    save = True
+    plot_show = True
+    save = False
 
     model_name = "LSTM_ED_module"
 
@@ -658,5 +667,5 @@ def work_with_toy_data():
 
 
 if __name__ == '__main__':
-    work_with_toy_data()
-    # train_LSTM_ED_module()
+    # work_with_toy_data()
+    train_LSTM_ED_module()

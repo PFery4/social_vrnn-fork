@@ -51,6 +51,7 @@ def parse_args():
     # LSTM Encoder/Decoder
     lstmed_encoding_layers = [32]
     lstmed_exp_num = 0
+    lstmed_reverse_time_prediction = False
     pretrained_query_agent_module_path = f"../trained_models/LSTM_ED_module/0"
     freeze_query_agent_module = False
 
@@ -294,6 +295,9 @@ def parse_args():
     parser.add_argument('--lstmed_exp_num',
                         help='experiment number for the LSTM Encoder Decoder',
                         type=int, default=lstmed_exp_num)
+    parser.add_argument('--lstmed_reverse_time_prediction',
+                        help='Whether the LSTM Encoder Decoder should reconstruct the input in reversed time',
+                        type=sup.str2bool, default=lstmed_reverse_time_prediction)
     parser.add_argument('--freeze_query_agent_module',
                         help=f'whether the query agent module should have its weights frozen while training.',
                         type=sup.str2bool, default=freeze_query_agent_module)
