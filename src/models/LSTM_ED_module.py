@@ -17,11 +17,12 @@ class LSTMEncoderDecoder:
         initialise an instance of the LSTMEncoderDecoder class.
 
         <args> must contain:
-            - lstmed_exp_num                : the experiment number for this particular training run
-            - batch_size                    : the batch size with which the model will be working
-            - truncated_backprop_length     : time truncation factor for unrolling the LSTM for training
-            - lstmed_n_features             : number of features contained within one training instance
-            - lstmed_encoding_layers        : list of encoding LSTM dimensions for the encoder (decoder is symmetrical)
+            - lstmed_exp_num                    : the experiment number for this particular training run
+            - batch_size                        : the batch size with which the model will be working
+            - truncated_backprop_length         : time truncation factor for unrolling the LSTM for training
+            - lstmed_n_features                 : number of features contained within one training instance
+            - lstmed_encoding_layers            : list of encoding LSTM dimensions for the encoder (decoder is symmetrical)
+            - lstmed_reverse_time_prediction    : bool, indicates if the model is to reconstruct the input in reverse time
         """
 
         # defining Filesystem relevant parameters
