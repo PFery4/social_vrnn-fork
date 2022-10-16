@@ -120,7 +120,7 @@ class DataHandlerLSTM():
 				[self.batch_size, self.tbpl, self.n_other_agents, self.pedestrian_vector_dim*(self.prev_horizon + 1)])
 		elif self.others_info == "sequence2":
 			self.pedestrian_grid = np.zeros(
-				[self.batch_size, self.tbpl, self.n_other_agents, self.prediction_horizon,self.pedestrian_vector_dim])
+				[self.batch_size, self.tbpl, self.n_other_agents, self.prediction_horizon, self.pedestrian_vector_dim])
 		elif self.others_info == "ped_grid":
 			self.pedestrian_grid = np.zeros([self.batch_size, self.tbpl,
 			                            int(np.ceil(self.submap_width / self.submap_resolution)),
@@ -866,7 +866,7 @@ class DataHandlerLSTM():
 		random_traj_idx = np.random.randint(0, len(self.agent_container.agent_data[agent_id].trajectories))
 		return self.agent_container.agent_data[agent_id].trajectories[random_traj_idx]
 
-	def fillBatch(self, agent_id, batch_idx, start_idx, truncated_backprop_length, batch_x, batch_vel,batch_pos,batch_grid, pedestrian_grid, batch_goal, batch_y, trajectory,batch_pos_target, centered_grid=False, testing = False):
+	def fillBatch(self, agent_id, batch_idx, start_idx, truncated_backprop_length, batch_x, batch_vel, batch_pos, batch_grid, pedestrian_grid, batch_goal, batch_y, trajectory,batch_pos_target, centered_grid=False, testing = False):
 		"""
 		Fill the data batches of batch_idx with data for all truncated backpropagation steps.
 		"""
@@ -1015,7 +1015,7 @@ class DataHandlerLSTM():
 		for ii in range(0,min(self.batch_size,len(self.trajectory_set)-len(self.trajectory_set)%self.batch_size)):
 			traj = self.batch_sequences[ii]
 			agent_id = self.batch_ids[ii]
-			other_agents_pos.append(self.fillBatch(agent_id, ii, int(self.sequence_idx[ii]), self.tbpl, self.batch_x, self.batch_vel, self.batch_pos,self.batch_grid, self.pedestrian_grid, self.batch_goal, self.batch_y, traj,self.batch_pos_target, centered_grid=self.centered_grid))
+			other_agents_pos.append(self.fillBatch(agent_id, ii, int(self.sequence_idx[ii]), self.tbpl, self.batch_x, self.batch_vel, self.batch_pos, self.batch_grid, self.pedestrian_grid, self.batch_goal, self.batch_y, traj,self.batch_pos_target, centered_grid=self.centered_grid))
 			self.sequence_idx[ii] += self.tbpl
 
 		if self.rotated_grid:
