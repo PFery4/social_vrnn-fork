@@ -123,6 +123,10 @@ def parse_args():
     # Dataset division
     train_set = 0.8
 
+    # Corrections code/article
+    correction_div_loss_in_total_loss = False
+    correction_annealing_kl_loss = "codebase"     # can be either "codebase" or "article"
+
     parser = argparse.ArgumentParser(description='LSTM model training')
 
     parser.add_argument('--model_name',
@@ -305,6 +309,18 @@ def parse_args():
     parser.add_argument('--warm_start_query_agent_module',
                         help='Restore from pretrained query agent module',
                         type=sup.str2bool, default=warm_start_query_agent_module)
+
+    # Corrections code/article
+    parser.add_argument('--correction_div_loss_in_total_loss',
+                        help='Correction of the total loss, as the implementation of the original codebase did not '
+                             'correspond with the description made in the article. False by default '
+                             '(respecting the original code implementation over the article).',
+                        type=sup.str2bool, default=correction_div_loss_in_total_loss)
+    parser.add_argument('--correction_annealing_kl_loss',
+                        help='Correction of the Annealing KL Loss coefficient, as the implementation of the original '
+                             'codebase did not correspond with the description made in the article. Can be either '
+                             '"codebase" or "article". Defaults to "codebase".',
+                        type=str, default=correction_annealing_kl_loss)
 
     parsed_args = parser.parse_args()
 

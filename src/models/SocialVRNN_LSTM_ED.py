@@ -258,7 +258,15 @@ class NetworkModel:
                 self.learning_rate = tf.train.exponential_decay(self.learning_rate_init, self.step, decay_steps=10000,
                                                                 decay_rate=0.9, staircase=False)
 
-                self.beta = (tf.tanh((tf.to_float(self.step) - 20000) / 5000) + 1) / 2
+                if args.correction_annealing_kl_loss == "codebase":
+                    self.beta = (tf.tanh((tf.to_float(self.step) - 20000) / 5000) + 1) / 2
+                elif args.correction_annealing_kl_loss == "article":
+                    self.beta = (tf.tanh((tf.to_float(self.step) - 10000) / 1000))
+                else:
+                    print(Fore.RED)
+                    print("INCORRECT VALUE OF ARGUMENT --correction_annealing_kl_loss\n"
+                          "MUST BE EITHER 'codebase' OR 'article'.")
+                    sys.exit()
 
                 prediction_loss_list = []
                 loss_list = []
@@ -339,7 +347,8 @@ class NetworkModel:
 
             # Reduce mean in all dimensions
             self.div_loss = tf.reduce_mean(div_loss_over_truncated_back_prop)
-            self.total_loss = tf.reduce_mean(loss_list, axis=0) + (tf.reduce_mean(kl_loss_list, axis=0)) * self.beta
+            self.total_loss = tf.reduce_mean(loss_list, axis=0) + \
+                (tf.reduce_mean(kl_loss_list, axis=0) + (self.div_loss * args.correction_div_loss_in_total_loss)) * self.beta
             self.reconstruction_loss = tf.reduce_mean(loss_list, axis=0)
             self.kl_loss = tf.reduce_mean(kl_loss_list, axis=0)
 
