@@ -75,5 +75,10 @@
 # python3 models/LSTM_ED_module.py --lstmed_exp_num 33 --total_training_steps 5000 --scenario 'real_world/zara_01';
 # python3 models/LSTM_ED_module.py --lstmed_exp_num 34 --total_training_steps 5000 --scenario 'real_world/zara_02';
 
+# python3 train_WIP.py --exp_num 3000 --model_name SocialVRNN --scenario real_world/ewap_dataset/seq_hotel --prev_horizon 8 --prediction_horizon 12 --truncated_backprop_length 10 --others_info relative --pedestrian_vector_dim 4;
+# python3 train_WIP.py --exp_num 3001 --model_name SocialVRNN --scenario real_world/ewap_dataset/seq_eth --prev_horizon 8 --prediction_horizon 12 --truncated_backprop_length 10 --others_info relative --pedestrian_vector_dim 4;
+# python3 train_WIP.py --exp_num 3002 --model_name SocialVRNN --scenario real_world/st --prev_horizon 8 --prediction_horizon 12 --truncated_backprop_length 10 --others_info relative --pedestrian_vector_dim 4;
+# python3 train_WIP.py --exp_num 3003 --model_name SocialVRNN --scenario real_world/zara_01 --prev_horizon 8 --prediction_horizon 12 --truncated_backprop_length 10 --others_info relative --pedestrian_vector_dim 4;
+# python3 train_WIP.py --exp_num 3004 --model_name SocialVRNN --scenario real_world/zara_02 --prev_horizon 8 --prediction_horizon 12 --truncated_backprop_length 10 --others_info relative --pedestrian_vector_dim 4;
 
-
+python3 train_WIP.py --exp_num 10000 --model_name SocialVRNN_LSTM_ED --scenario real_world/ewap_dataset/seq_hotel --prev_horizon 8 --prediction_horizon 12 --truncated_backprop_length 8;
