@@ -1,3 +1,5 @@
+import json
+
 from tensorflow_probability import distributions as tfd
 import sys
 
@@ -545,7 +547,7 @@ class NetworkModel:
             self.test_cell_state_current_lstm_grid, self.test_hidden_state_current_lstm_grid = _current_state_lstm_grid
             self.test_cell_state_current_lstm_ped, self.test_hidden_state_current_lstm_ped = _current_state_lstm_ped
             self.test_cell_state_current_lstm_concat, self.test_hidden_state_current_lstm_concat = _current_state_lstm_concat
-            self.query_agent_module.update_test_states(query_agent_module_states_list)
+            self.query_agent_module.update_states(query_agent_module_states_list, test_states=True)
 
         return batch_loss, summary, _model_prediction
 
@@ -617,6 +619,8 @@ class NetworkModel:
                     self.autoencoder_loss]
         run_list.extend(self.query_agent_module.cell_states_list())
 
+        # print(feed_dict_train)
+
         out_list = sess.run(run_list,
                             feed_dict=feed_dict_train)
 
@@ -676,7 +680,7 @@ class NetworkModel:
             self.test_cell_state_current_lstm_grid, self.test_hidden_state_current_lstm_grid = _current_state_lstm_grid
             self.test_cell_state_current_lstm_ped, self.test_hidden_state_current_lstm_ped = _current_state_lstm_ped
             self.test_cell_state_current_lstm_concat, self.test_hidden_state_current_lstm_concat = _current_state_lstm_concat
-            self.query_agent_module.update_test_states(query_agent_module_states_list)
+            self.query_agent_module.update_states(query_agent_module_states_list, test_states=True)
 
         return _model_prediction, _likelihood
 

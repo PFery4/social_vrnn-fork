@@ -327,6 +327,9 @@ def parse_args():
     parsed_args.model_path = os.path.join('../trained_models/', parsed_args.model_name, str(parsed_args.exp_num))
     parsed_args.log_dir = os.path.join(parsed_args.model_path, 'log')
 
+    # for the LSTM Encoder Decoder
+    parsed_args.lstmed_n_features = parsed_args.input_state_dim * (parsed_args.prev_horizon + 1)
+
     return parsed_args
 
 
