@@ -46,7 +46,7 @@ def parse_args():
     input_state_dim = 2  # [vx, vy]
     output_dim = 2  # data state dimension
     output_pred_state_dim = 4  # ux uy simgax sigmay
-    pedestrian_vector_dim = 4       # used to be 36 (I do not know why, seems that 4 is correct (look at implementation of fillbatch method in DataHandlerLSTM class)
+    pedestrian_vector_dim = 4       # used to be 36 (I do not know why, seems that 4 is correct (look at implementation of fillbatch method in DataHandlerLSTM class))
     pedestrian_vector_state_dim = 2
     cmd_vector_dim = 2
     pedestrian_radius = 0.3

@@ -357,6 +357,8 @@ if __name__ == '__main__':
 
     # Enable / Disable GPU
     if not args.gpu:
+        print("NO GPU: setting environment variable:\n"
+              "'CUDA_VISIBLE_DEVICES'='-1'\n")
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
     # preparing the directories for storing logs and model parameters
@@ -371,12 +373,6 @@ if __name__ == '__main__':
                 "map_size": np.array([30., 6.])}
     # Load dataset
     data_prep.processData(**map_args)
-    #
-    # # WIP CODE
-    # print("DATA_PREP INFO")
-    # for k, v in data_prep.__dict__.items():
-    #     print(f"{k}: {v}")
-    # # WIP CODE
 
     # Import Deep Learning model
     module = importlib.import_module("src.models." + args.model_name)
@@ -388,7 +384,6 @@ if __name__ == '__main__':
     # see the trainable variables
     for var in tf.trainable_variables():
         print(Fore.YELLOW + f"TRAINABLE VARIABLE OF SOCIAL_VRNN:\t{var}" + Style.RESET_ALL)
-
 
     # TensorFlow CPU and GPU configurations, see:
     # https://liyin2015.medium.com/tensorflow-cpus-and-gpus-configuration-9c223436d4ef
