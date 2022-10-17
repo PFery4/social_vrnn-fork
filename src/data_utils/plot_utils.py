@@ -1290,7 +1290,19 @@ def centered_batch_pos_from_vel(batch_vel):
     return processed_batch_vel
 
 
-def plot_batch_vel(centered_batch_vel, centered_batch_pos, block=False):
+def plot_centered_batch_vel(axs, batch_vel, label, color):
+    """
+    Takes a velocity batch, processes it with centered_batch_pos_from_vel, and plots the batch in a figure for better
+    visualization:
+
+    axs is a numpy array of shape (4, 4) containing axes for plotting individual trajectories
+    """
+    centered_batch_vel = centered_batch_pos_from_vel(batch_vel)
+    for b_idx in range(16):
+        row_idx, col_idx = b_idx // 4, b_idx % 4
+        axs[row_idx, col_idx].plot(centered_batch_vel[b_idx, ::2], centered_batch_vel[b_idx, 1::2], label=label, color=color)
+
+def plot_batch_vel_and_pos(centered_batch_vel, centered_batch_pos, block=False):
     """
 	Takes batch_vel and batch_pos arrays (each containing 16 training instances), which have been preprocessed by
 	centered_batch_pos_from_vel and centered_batch_pos respectively. The training instances are each plotted in a
@@ -1323,7 +1335,7 @@ def visualize_traintest_batches(data_handler, n_train=10, n_test=10):
 
         centered_pos = centered_batch_pos(batch_pos)
         centered_vel = centered_batch_pos_from_vel(batch_vel)
-        plot_batch_vel(centered_vel, centered_pos, block=True)
+        plot_batch_vel_and_pos(centered_vel, centered_pos, block=True)
 
     print("PLOTTING TEST INSTANCES")
     for step in range(n_test):
@@ -1333,7 +1345,7 @@ def visualize_traintest_batches(data_handler, n_train=10, n_test=10):
 
         centered_pos = centered_batch_pos(batch_pos)
         centered_vel = centered_batch_pos_from_vel(batch_vel)
-        plot_batch_vel(centered_vel, centered_pos, block=True)
+        plot_batch_vel_and_pos(centered_vel, centered_pos, block=True)
 
 
 def get_weight_value(session: tf.Session, weight_str: str, n_weights: int = None):

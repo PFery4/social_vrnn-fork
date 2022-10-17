@@ -518,8 +518,8 @@ def train_LSTM_ED_module():
 
     num_steps = args.total_training_steps
     log_freq = 10
-    plot_show = False
     save = True
+    plot_show = not save
 
     model_name = "LSTM_ED_module"
 
@@ -601,11 +601,11 @@ def train_LSTM_ED_module():
     yhat = lstm_ae_module.reconstruct(sess=session, input_data=batch_vel)
     # print(session.run(lstm_ae_module.output_tensor, feed_dict=lstm_ae_module.feed_dic(input_data=batch_vel))[5])
 
-    print()
-    print('---Predicted---')
-    print(np.round(yhat, 5))
-    print('---Actual---')
-    print(np.round(batch_vel, 5))
+    # print()
+    # print('---Predicted---')
+    # print(np.round(yhat, 5))
+    # print('---Actual---')
+    # print(np.round(batch_vel, 5))
 
     plt.rcParams["figure.figsize"] = (16, 12)
     fig_1 = plt.figure("Reconstruction")
@@ -614,6 +614,16 @@ def train_LSTM_ED_module():
     plt.legend()
     if save:
         plt.savefig(os.path.join(results_path, "reconstruction.png"))
+
+    fig_2, axs = plt.subplots(nrows=4, ncols=4, sharex=True, sharey=True)
+    ax_lim = 5
+    plt.setp(axs, xlim=[-ax_lim, ax_lim], ylim=[-ax_lim, ax_lim])
+    fig_2.canvas.manager.set_window_title("Reconstruction - Visual")
+    src.data_utils.plot_utils.plot_centered_batch_vel(axs=axs, batch_vel=batch_vel, label="GT", color='blue')
+    src.data_utils.plot_utils.plot_centered_batch_vel(axs=axs, batch_vel=yhat, label="pred", color='orange')
+    plt.legend()
+    if save:
+        plt.savefig(os.path.join(results_path, "visual_reconstruction.png"))
 
     output_dict = {"train_losses": train_losses,
                    "val_losses": val_losses,
@@ -640,7 +650,7 @@ def train_LSTM_ED_module():
         with open(os.path.join(results_path, "results.pkl"), 'wb') as file:
             pkl.dump(output_dict, file, protocol=2)
 
-    fig_2 = plt.figure("Loss Graph")
+    fig_3 = plt.figure("Loss Graph")
     plt.plot(list(range(0, num_steps, log_freq)), val_losses, label="Val Loss")
     plt.plot(list(range(0, num_steps)), train_losses, label="Train Loss")
     plt.legend()
