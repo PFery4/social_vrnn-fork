@@ -83,7 +83,7 @@ def parse_args():
     lstmed_encoding_layers = [rnn_state_size]
     lstmed_exp_num = 0
     lstmed_reverse_time_prediction = False
-    lstmed_consistent_time_signal = False
+    lstmed_consistent_time_signal = True
     lstmed_n_features = input_state_dim * (prev_horizon + 1)
 
     freeze_query_agent_module = False
