@@ -518,8 +518,8 @@ def train_LSTM_ED_module():
 
     num_steps = args.total_training_steps
     log_freq = 10
-    plot_show = True
-    save = False
+    plot_show = False
+    save = True
 
     model_name = "LSTM_ED_module"
 
