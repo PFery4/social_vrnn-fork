@@ -83,6 +83,7 @@ def parse_args():
     lstmed_encoding_layers = [rnn_state_size]
     lstmed_exp_num = 0
     lstmed_reverse_time_prediction = False
+    lstmed_consistent_time_signal = False
     lstmed_n_features = input_state_dim * (prev_horizon + 1)
 
     freeze_query_agent_module = False
@@ -296,6 +297,9 @@ def parse_args():
     parser.add_argument('--lstmed_reverse_time_prediction',
                         help='Whether the LSTM Encoder Decoder should reconstruct the input in reversed time',
                         type=sup.str2bool, default=lstmed_reverse_time_prediction)
+    parser.add_argument('--lstmed_consistent_time_signal',
+                        help='Whether the LSTM Encoder Decoder should keep consistent time signal values across time truncations.',
+                        type=sup.str2bool, default=lstmed_consistent_time_signal)
     parser.add_argument('--lstmed_n_features',
                         help="number of features per timestep for the LSTM Encoder Decoder past trajectory module "
                              "default is equal to:\ninput_state_dim * (prev_horizon + 1)",

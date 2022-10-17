@@ -69,6 +69,7 @@ class LSTMEncoderDecoder:
 
         # Reconstruction specification
         self.reverse_time_prediction = args.lstmed_reverse_time_prediction
+        self.consistent_time_signal = args.lstmed_consistent_time_signal
 
         # Creating the architecture
         self.encoding_layers_dim = args.lstmed_encoding_layers
@@ -141,19 +142,13 @@ class LSTMEncoderDecoder:
                 self.output_series.append(self.time_distributed_dense(out))
 
             self.output_tensor = tf.stack(self.output_series, axis=1)
-            self.output_tensor = self.apply_mask(self.output_tensor)
+            if self.consistent_time_signal:
+                self.output_tensor = self.apply_mask(self.output_tensor)
 
             # reversing the order
             # https://arxiv.org/abs/1502.04681
             if self.reverse_time_prediction:
                 self.output_tensor = tf.reverse(self.output_tensor, axis=[1])
-
-            # # WIPCODE
-            # print()
-            # print(type(self.output_tensor))
-            # print(self.output_tensor.shape)
-            # print()
-            # # WIPCODE
 
             # checking that the reconstructed tensors are of the same shape as the inputs
             assert all(self.output_series[i].shape.as_list() == self.input_series[i].shape.as_list()
@@ -177,7 +172,8 @@ class LSTMEncoderDecoder:
                      "truncated_backprop_length": self.truncated_backprop_length,
                      "n_features": self.n_features,
                      "encoding_layers_dim": self.encoding_layers_dim,
-                     "reverse_time_prediction": self.reverse_time_prediction}
+                     "reverse_time_prediction": self.reverse_time_prediction,
+                     "input_state_dim" :self.input_state_dim}
         return info_dict
 
     def describe(self) -> None:
@@ -354,7 +350,6 @@ class LSTMEncoderDecoder:
         )
         # reshaping the output data so that it is the same shape as the numpy array fed as input_data
         output_data = out_list[0]
-        # output_data = np.stack(output_data, axis=1)
 
         states_list = out_list[1:]
 
