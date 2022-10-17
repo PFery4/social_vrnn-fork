@@ -171,9 +171,10 @@ class LSTMEncoderDecoder:
         info_dict = {"batch_size": self.batch_size,
                      "truncated_backprop_length": self.truncated_backprop_length,
                      "n_features": self.n_features,
+                     "input_state_dim": self.input_state_dim,
                      "encoding_layers_dim": self.encoding_layers_dim,
                      "reverse_time_prediction": self.reverse_time_prediction,
-                     "input_state_dim" :self.input_state_dim}
+                     "consistent_time_signal": self.consistent_time_signal}
         return info_dict
 
     def describe(self) -> None:
@@ -600,11 +601,11 @@ def train_LSTM_ED_module():
     yhat = lstm_ae_module.reconstruct(sess=session, input_data=batch_vel)
     # print(session.run(lstm_ae_module.output_tensor, feed_dict=lstm_ae_module.feed_dic(input_data=batch_vel))[5])
 
-    # print()
-    # print('---Predicted---')
-    # print(np.round(yhat, 3))
-    # print('---Actual---')
-    # print(np.round(batch_vel, 3))
+    print()
+    print('---Predicted---')
+    print(np.round(yhat, 5))
+    print('---Actual---')
+    print(np.round(batch_vel, 5))
 
     plt.rcParams["figure.figsize"] = (16, 12)
     fig_1 = plt.figure("Reconstruction")
@@ -699,6 +700,8 @@ def work_with_toy_data():
     args.lstmed_n_features = 2
     args.lstmed_exp_num = 0
     args.lstmed_reverse_time_prediction = False
+    args.lstmed_consistent_time_signal = False
+    args.input_state_dim = 2
 
     print(f"instantiating the LSTM Encoder Decoder using the following arguments:")
     for k, v in vars(args).items():
@@ -727,5 +730,5 @@ def work_with_toy_data():
 
 
 if __name__ == '__main__':
-    # work_with_toy_data()
-    train_LSTM_ED_module()
+    work_with_toy_data()
+    # train_LSTM_ED_module()
