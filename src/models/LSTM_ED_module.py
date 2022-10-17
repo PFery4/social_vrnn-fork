@@ -452,16 +452,17 @@ def train_LSTM_ED_module():
     import src.train_WIP
     import src.data_utils.DataHandlerLSTM
     import src.data_utils.plot_utils
+    import src.config.config
     import matplotlib.pyplot as plt
     import pickle as pkl
     import json
 
-    args = src.train_WIP.parse_args()
+    args = src.config.config.parse_args()
 
     num_steps = args.total_training_steps
     log_freq = 10
-    plot_show = True
-    save = False
+    plot_show = False
+    save = True
 
     model_name = "LSTM_ED_module"
 
@@ -669,5 +670,5 @@ def work_with_toy_data():
 
 
 if __name__ == '__main__':
-    work_with_toy_data()
-    # train_LSTM_ED_module()
+    # work_with_toy_data()
+    train_LSTM_ED_module()
