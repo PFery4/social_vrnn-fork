@@ -46,6 +46,7 @@ class LSTMEncoderDecoder:
         # when working with the ETH/UCY dataset, it is important that:
         # args.n_features = args.input_state_dim * (args.prev_horizon + 1)
         self.n_features = args.lstmed_n_features
+        self.input_state_dim = args.input_state_dim
 
         # input formatting
         self.input_placeholder = tf.placeholder(dtype=tf.float32,
@@ -54,6 +55,13 @@ class LSTMEncoderDecoder:
                                                        self.n_features],
                                                 name='input_state')
         self.input_series = tf.unstack(self.input_placeholder, axis=1)
+
+        # creating the mask
+        self.mask = self.create_mask()
+
+        # # can be uncommented and passed to a session run to verify correct implementation
+        # self.remade_input_after_mask = self.apply_mask(tensor=self.input_placeholder)
+        # self.correct_mask_op = tf.assert_equal(self.input_placeholder, self.remade_input_after_mask)
 
         # Optimizer specifiation
         self.learning_rate = 1e-3
@@ -113,9 +121,6 @@ class LSTMEncoderDecoder:
 
             self.embedding = prev_tensor
 
-            print(len(self.embedding))
-            print(zblu)
-
             prev_tensor = self.embedding
             for i, dim_size in enumerate(reversed(self.encoding_layers_dim)):
                 setattr(self, f"dec_{i}_cell", tf.nn.rnn_cell.LSTMCell(dim_size,
@@ -136,16 +141,24 @@ class LSTMEncoderDecoder:
                 self.output_series.append(self.time_distributed_dense(out))
 
             self.output_tensor = tf.stack(self.output_series, axis=1)
+            self.output_tensor = self.apply_mask(self.output_tensor)
 
             # reversing the order
             # https://arxiv.org/abs/1502.04681
             if self.reverse_time_prediction:
                 self.output_tensor = tf.reverse(self.output_tensor, axis=[1])
 
+            # # WIPCODE
+            # print()
+            # print(type(self.output_tensor))
+            # print(self.output_tensor.shape)
+            # print()
+            # # WIPCODE
+
             # checking that the reconstructed tensors are of the same shape as the inputs
             assert all(self.output_series[i].shape.as_list() == self.input_series[i].shape.as_list()
                        for i in range(self.truncated_backprop_length))
-            assert self.input_placeholder.shape.as_list() == self.output_tensor.shape.as_list()
+            # assert self.input_placeholder.shape.as_list() == self.output_tensor.shape.as_list()
 
             # Loss
             reconstruction_loss = tf.squared_difference(self.input_placeholder, self.output_tensor)
@@ -332,7 +345,7 @@ class LSTMEncoderDecoder:
                                            self.n_features]
         """
 
-        run_list = [self.output_series]
+        run_list = [self.output_tensor]
         run_list.extend(self.cell_states_list())
 
         out_list = sess.run(
@@ -341,7 +354,7 @@ class LSTMEncoderDecoder:
         )
         # reshaping the output data so that it is the same shape as the numpy array fed as input_data
         output_data = out_list[0]
-        output_data = np.stack(output_data, axis=1)
+        # output_data = np.stack(output_data, axis=1)
 
         states_list = out_list[1:]
 
@@ -445,6 +458,51 @@ class LSTMEncoderDecoder:
             setattr(self, f"dec_{i}_test_cell_state_current", getattr(self, f"dec_{i}_cell_state_current").copy())
             setattr(self, f"dec_{i}_test_hidden_state_current", getattr(self, f"dec_{i}_hidden_state_current").copy())
 
+    def create_mask(self):
+        """
+        Creates a boolean mask which will transform a training instance into a unidimensional time series of the
+        velocity signal.
+        """
+        mask = np.zeros(shape=[self.batch_size, self.truncated_backprop_length, self.n_features],
+                                    dtype=bool)
+        mask[:, 0, :] = True
+        for t_idx in range(1, self.truncated_backprop_length):
+            mask[:, t_idx, -self.input_state_dim:] = True
+        return mask
+
+    def apply_mask(self, tensor):
+        """
+        Applies mask to a tensor (generally the output tensor)
+
+        input training instances contained within a batch are of the shape:
+        [self.truncated_backprop_length, self.n_features] <==> [tbp, n_features]
+
+        with self.prev_horizon == ph:
+
+        an input of format:
+        [[v_-tbp, v_-tbp-1, ... , v_-tbp-ph],
+         [......, ........, ... , .........],
+         [v_-1  , v_-2    , ... , v_-ph-1  ],
+         [v_0   , v_-1    , ... , v_-ph    ],]
+
+        becomes:
+        [v_0, v_-1 ..., v_-tbp-ph+1, v_-tbp-ph]
+
+        and is then reshaped into its original format.
+        """
+        # reverse for correct order of the time series
+        masked_input = tf.reverse(tensor, axis=[1])
+        masked_input = tf.boolean_mask(tensor=masked_input, mask=self.mask)
+        masked_input = tf.reshape(tensor=masked_input, shape=[self.batch_size, -1])
+
+        remade_input_list = []
+        for t_idx in range(self.truncated_backprop_length):
+            remade_input_list.append(
+                masked_input[:, t_idx * self.input_state_dim:t_idx * self.input_state_dim + self.n_features])
+        remade_input_after_mask = tf.stack(remade_input_list, axis=1)
+        remade_input_after_mask = tf.reverse(remade_input_after_mask, axis=[1])
+        return remade_input_after_mask
+
 
 def train_LSTM_ED_module():
     """
@@ -455,18 +513,19 @@ def train_LSTM_ED_module():
     import src.train_WIP
     import src.data_utils.DataHandlerLSTM
     import src.data_utils.plot_utils
+    import src.config.config
     import matplotlib.pyplot as plt
     import pickle as pkl
     import json
 
-    args = src.train_WIP.parse_args()
+    args = src.config.config.parse_args()
 
     num_steps = args.total_training_steps
     log_freq = 10
     plot_show = True
     save = False
 
-    model_name = "LSTM_ED_module"
+    model_name = "LSTM_ED_module_v2"
 
     # save_path specified relative to src folder
     save_path = f"../trained_models/{model_name}/{args.lstmed_exp_num}"
@@ -544,6 +603,7 @@ def train_LSTM_ED_module():
         lstm_ae_module.save_model(sess=session, path=save_path, step=step, filename="final-model.ckpt")
 
     yhat = lstm_ae_module.reconstruct(sess=session, input_data=batch_vel)
+    # print(session.run(lstm_ae_module.output_tensor, feed_dict=lstm_ae_module.feed_dic(input_data=batch_vel))[5])
 
     # print()
     # print('---Predicted---')
@@ -672,5 +732,5 @@ def work_with_toy_data():
 
 
 if __name__ == '__main__':
-    work_with_toy_data()
-    # train_LSTM_ED_module()
+    # work_with_toy_data()
+    train_LSTM_ED_module()
