@@ -730,5 +730,5 @@ def work_with_toy_data():
 
 
 if __name__ == '__main__':
-    work_with_toy_data()
-    # train_LSTM_ED_module()
+    # work_with_toy_data()
+    train_LSTM_ED_module()
