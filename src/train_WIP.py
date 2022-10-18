@@ -16,7 +16,7 @@ import tensorflow as tf
 from src.config.config import parse_args, prepare_model_directory
 
 
-### MAIN FUNCTION
+# MAIN FUNCTION ########################################################################################################
 
 
 if __name__ == '__main__':
