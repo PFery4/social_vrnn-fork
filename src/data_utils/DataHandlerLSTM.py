@@ -1019,7 +1019,7 @@ class DataHandlerLSTM():
 			self.sequence_idx[ii] += self.tbpl
 
 		if self.rotated_grid:
-			_, self.batch_y = sup.rotate_batch_to_local_frame(self.batch_y,self.batch_x)
+			_, self.batch_y = sup.rotate_batch_to_local_frame(self.batch_y, self.batch_x)
 			self.batch_x, self.batch_pos_target = sup.rotate_batch_to_local_frame(self.batch_pos_target, self.batch_x)
 
 		return deepcopy(self.batch_x), deepcopy(self.batch_vel), deepcopy(self.batch_pos), deepcopy(self.batch_goal), \
