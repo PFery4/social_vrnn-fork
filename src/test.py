@@ -147,8 +147,12 @@ if __name__ == '__main__':
     with tf.Session(config=config) as sess:
         model.warmstart_model(args, sess)
 
-        for traj_id in range(int(len(data_prep.trajectory_set) * data_prep.train_set),
-                             len(data_prep.trajectory_set)):
+        if test_args.record:
+            iter_list = range(np.minimum(test_args.num_test_sequences, len(data_prep.trajectory_set) - 1))
+        else:
+            iter_list = range(int(len(data_prep.trajectory_set) * data_prep.train_set), len(data_prep.trajectory_set))
+
+        for traj_id in iter_list:
             predictions = []
             traj_likelihood = []
             # sample a trajectory id for testing --> No longer of question
