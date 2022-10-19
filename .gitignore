@@ -7,5 +7,4 @@ social_vrnn.egg-info
 *.csv
 build
 .idea
-src/dev
 docs/results_figures
