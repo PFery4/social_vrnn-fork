@@ -104,7 +104,6 @@ if __name__ == '__main__':
         best_loss = float('inf')
         avg_training_loss = np.ones(100)
 
-
         for step in range(initial_step, args.total_training_steps):
             start_time_loop = time.time()
 

@@ -37,7 +37,7 @@ class Trajectory():
       self.time_vec = np.append(self.time_vec, timestamp)
       self.pose_vec = np.append(self.pose_vec, np.atleast_2d(pose), axis=0)
       self.vel_vec = np.append(self.vel_vec, np.atleast_2d(vel), axis=0)
-    
+
     if self.time_vec.shape[0] > 1:
       self.updateInterpolators()
       

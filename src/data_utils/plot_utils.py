@@ -9,7 +9,7 @@ import pickle as pkl
 import time
 import src.data_utils.Support as sup
 import tensorflow as tf
-import matplotlib.pyplot as pl
+import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.animation import FFMpegWriter
 from matplotlib.patches import Ellipse
@@ -29,8 +29,8 @@ def plot_scenario(enc_seq, dec_seq, traj, predictions, args):
     metadata = dict(title='Movie Test', artist='Matplotlib')
     writer = FFMpegWriter(fps=10, metadata=metadata)
 
-    fig = pl.figure("Trajectory Predictions")
-    ax_in = pl.subplot()
+    fig = plt.figure("Trajectory Predictions")
+    ax_in = plt.subplot()
 
     ax_in.clear()
 
@@ -60,7 +60,7 @@ def plot_scenario(enc_seq, dec_seq, traj, predictions, args):
 
             ax_in.legend()
             fig.canvas.draw()
-            pl.show(block=False)
+            plt.show(block=False)
             # time.sleep(t)
             writer.grab_frame()
 
@@ -77,8 +77,8 @@ def plot_scenario_vel_tbp(enc_seq, dec_seq, traj, predictions, args):
     metadata = dict(title='Movie Test', artist='Matplotlib')
     writer = FFMpegWriter(fps=10, metadata=metadata)
 
-    fig = pl.figure("Trajectory Predictions")
-    ax_in = pl.subplot()
+    fig = plt.figure("Trajectory Predictions")
+    ax_in = plt.subplot()
 
     ax_in.clear()
 
@@ -122,7 +122,7 @@ def plot_scenario_vel_tbp(enc_seq, dec_seq, traj, predictions, args):
 
             ax_in.legend()
             fig.canvas.draw()
-            pl.show(block=False)
+            plt.show(block=False)
             # time.sleep(t)
             writer.grab_frame()
 
@@ -683,8 +683,8 @@ def plot_scenario_vel(trajectories, all_predictions, args, grid=None):
     metadata = dict(title='Movie Test', artist='Matplotlib')
     writer = FFMpegWriter(fps=2, metadata=metadata)
 
-    fig = pl.figure("Trajectory Predictions")
-    ax_in = pl.subplot()
+    fig = plt.figure("Trajectory Predictions")
+    ax_in = plt.subplot()
 
     ax_in.clear()
 
@@ -763,7 +763,7 @@ def plot_scenario_vel(trajectories, all_predictions, args, grid=None):
 
                 ax_in.legend()
                 fig.canvas.draw()
-                pl.show(block=False)
+                plt.show(block=False)
                 time.sleep(0.1)
                 writer.grab_frame()
 
@@ -778,8 +778,8 @@ def plot_batch(batch_x, batch_grid, batch_ped_grid, batch_y, other_agents_pos, a
 			global_grid: Static Environment
 		"""
 
-    fig = pl.figure("Batch Data")
-    ax_in = pl.subplot()
+    fig = plt.figure("Batch Data")
+    ax_in = plt.subplot()
 
     ax_in.clear()
 
@@ -810,7 +810,7 @@ def plot_batch(batch_x, batch_grid, batch_ped_grid, batch_y, other_agents_pos, a
 
             ax_in.legend()
             fig.canvas.draw()
-            pl.show(block=False)
+            plt.show(block=False)
 
 
 def plot_batch_OpenCV(step, batch_x, batch_grid, batch_ped_grid, batch_y, other_agents_pos, _model_prediction, args):
@@ -1195,12 +1195,12 @@ def matplot_dataset(trajs, args):
 		inputs:
 			enc_seq: Encoder Inouts Sequences
 			dec_seq: Decoder input sequences
-			traj: Trajectory Groud Truth of Robot and Pedestrians
+			traj: Trajectory Ground Truth of Robot and Pedestrians
 			predictions: Pedestrians Predicted Trajectory
 			global_grid: Static Environment
 	"""
-    fig = pl.figure('Training Performance ' + args.model_name)
-    ax = pl.subplot()
+    fig = plt.figure('Training Performance ' + args.model_name)
+    ax = plt.subplot()
     for exp_idx in range(len(trajs)):
         ax.clear()
         save_img_to_file = args.data_path + "/" + args.scenario + "/" + str(exp_idx) + '.png'
@@ -1230,7 +1230,7 @@ def matplot_dataset(trajs, args):
             e1.set_alpha(0.5)
 
             ax.add_patch(e1)
-            pl.show(block=False)
+            plt.show(block=False)
         min_x = min(min(robot_traj[:, 0]), min(ped_traj[:, 0])) - 1.0
         max_x = max(max(robot_traj[:, 0]), max(ped_traj[:, 0])) + 1.0
         min_y = min(min(robot_traj[:, 1]), min(ped_traj[:, 1])) - 1.0
@@ -1309,7 +1309,7 @@ def plot_batch_vel_and_pos(centered_batch_vel, centered_batch_pos, block=False):
 	subfigure, allowing for better visualization of the input data.
 	"""
     assert centered_batch_pos.shape[0] == centered_batch_vel.shape[0] == 16
-    fig, axs = pl.subplots(4, 4)
+    fig, axs = plt.subplots(4, 4)
 
     ax_lim = 5
 
@@ -1321,7 +1321,7 @@ def plot_batch_vel_and_pos(centered_batch_vel, centered_batch_pos, block=False):
         axs[row_idx, col_idx].scatter(centered_batch_pos[b_idx, ::2], centered_batch_pos[b_idx, 1::2], s=40,
                                       facecolors='none', edgecolors='r')
 
-    pl.show(block=block)
+    plt.show(block=block)
 
 
 def visualize_traintest_batches(data_handler, n_train=10, n_test=10):
@@ -1404,10 +1404,10 @@ def compare_QA_AE_plots(exp_num_list):
 	setups.
 	exp_num_list is a list of ints, which refer to the experiment results to use for plotting.
 	"""
-    fig, axs = pl.subplots(1, len(exp_num_list), sharex='all', sharey='all')
+    fig, axs = plt.subplots(1, len(exp_num_list), sharex='all', sharey='all')
     for idx, val in enumerate(exp_num_list):
         plot_QA_AE_loss_graph(val, axs[idx])
-    pl.show()
+    plt.show()
 
 
 def print_args(parsed_args: argparse.Namespace, spacing: int = 40) -> None:

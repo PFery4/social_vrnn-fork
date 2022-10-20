@@ -36,7 +36,7 @@ class AgentData():
         if len(self.goals) > 1:
           self.traj_idx += 1
     else:
-      if len(self.goals)>0:
+      if len(self.goals) > 0:
         if not np.all(goal == self.last_goal):
           self.trajectories.append(traj.Trajectory(goal=np.array([[goal[0], goal[1]]])))
           self.traj_idx += 1
