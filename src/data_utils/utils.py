@@ -1,3 +1,4 @@
+import importlib
 import os
 import csv
 import sys
@@ -5,6 +6,7 @@ import pickle as pkl
 import argparse
 import numpy as np
 
+sys.path.append(os.path.abspath(os.path.join(__file__, '../../..')))
 sys.path.append('../src/data_utils')
 if sys.version_info[0] < 3:
     import Support as sup
@@ -373,6 +375,35 @@ def parse_args(defaults, parse_type):
     args = parser.parse_args()
 
     return args
+
+
+def load_model_from_parameter_file(model_directory, default_args):
+    """
+    This method uses the default arguments as a basis, overwrites them by using the parameter file contained within the
+    model directory, instantiates an object of the model desired, by loading the parameters contained within the
+    directory, then returns the object.
+    """
+    # TODO: finish implementing
+
+    model_directory = "home/pfery/Documents/research_assignment/social_vrnn-fork/trained_models/SocialVRNN_LSTM_ED/old_runs/10203"
+    dir_split_ = model_directory.split(sep="/")
+    model_name = dir_split_[dir_split_.index('trained_models') + 1]
+    exp_num = int(dir_split_[-1])
+    print(model_name)
+    print(exp_num)
+
+    # import the model
+    module = importlib.import_module("src.models." + model_name)
+    globals().update(module.__dict__)
+
+    model = NetworkModel(default_args)
+
+    print(model)
+
+
+
+
+
 
 
 if __name__ == '__main__':

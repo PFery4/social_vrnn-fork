@@ -12,39 +12,59 @@ if __name__ == '__main__':
     args = config.parse_args()
     plot_utils.print_args(args)
 
-    data_prep = dhlstm.DataHandlerLSTM(args)
+    scenarii = ["real_world/ewap_dataset/seq_hotel",
+                "real_world/ewap_dataset/seq_eth",
+                "real_world/st",
+                "real_world/zara_01",
+                "real_world/zara_02"]
+    args_list = []
+    data_preps = []
 
-    # Only used to create a map from png
-    # Make sure these parameters are correct otherwise it will fail training and plotting the results
-    map_args = {"file_name": 'map.png',
-                "resolution": 0.1,
-                "map_size": np.array([30., 6.])}
-    # Load dataset
-    data_prep.processData(**map_args)
+    for scenario in scenarii:
+        args.scenario = scenario
 
-    # printing a summary of the attributes of the DataHandler object
-    data_prep.describe()
+        data_prep = dhlstm.DataHandlerLSTM(args)
 
-    # # To get a Batch of Data:
-    batch_x, \
-    batch_vel, \
-    batch_pos, \
-    batch_goal, \
-    batch_grid, \
-    batch_ped_grid, \
-    batch_y, \
-    batch_pos_target, \
-    other_agents_pos, \
-    new_epoch = data_prep.getBatch()
+        # Only used to create a map from png
+        # Make sure these parameters are correct otherwise it will fail training and plotting the results
+        map_args = {"file_name": 'map.png',
+                    "resolution": 0.1,
+                    "map_size": np.array([30., 6.])}
+        # Load dataset
+        data_prep.processData(**map_args)
 
-    # Loading the first trajectory
-    # traj_id_list = []
-    # for id, traj in data_prep.trajectory_set:
-    #     traj_id_list.append(id)
-    # print(sorted(traj_id_list))
+        # # printing a summary of the attributes of the DataHandler object
+        # data_prep.describe()
+        data_preps.append(data_prep)
 
-    centered_batch_vel = plot_utils.centered_batch_pos_from_vel(batch_vel)
-    centered_batch_pos = plot_utils.centered_batch_pos(batch_pos)
-    plot_utils.plot_batch_vel_and_pos(centered_batch_vel,
-                                      centered_batch_pos,
-                                      block=True)
+        print(f"created datahandler with scenario: {data_prep.scenario}")
+
+    for idx, data_prep in enumerate(data_preps):
+        print("LOOKING AT DATAPREP: ", idx)
+        # Loading the first trajectory
+        # print(len(data_prep.trajectory_set))
+        #
+        # traj_id_list = []
+        # for id, traj in data_prep.trajectory_set:
+        #     traj_id_list.append(id)
+        # print(sorted(traj_id_list))
+
+        # # To get a Batch of Data:
+        # batch_x, \
+        # batch_vel, \
+        # batch_pos, \
+        # batch_goal, \
+        # batch_grid, \
+        # batch_ped_grid, \
+        # batch_y, \
+        # batch_pos_target, \
+        # other_agents_pos, \
+        # new_epoch = data_prep.getBatch()
+
+        print(sorted(data_prep.agent_container.getAgentIDs()))
+
+    # centered_batch_vel = plot_utils.centered_batch_pos_from_vel(batch_vel)
+    # centered_batch_pos = plot_utils.centered_batch_pos(batch_pos)
+    # plot_utils.plot_batch_vel_and_pos(centered_batch_vel,
+    #                                   centered_batch_pos,
+    #                                   block=True)

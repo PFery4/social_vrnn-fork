@@ -5,6 +5,7 @@ import sys
 sys.path.append("../")
 import src.data_utils.plot_utils
 import matplotlib.pyplot as plt
+import src.data_utils.utils
 
 here = os.path.abspath(__file__)
 
@@ -85,8 +86,8 @@ def ablation_study():
     plt.rcParams['font.family'] = 'monospace'
 
     datasets = ["Hotel", "ETH", "Univ", "ZARA01", "ZARA02"]
-    target_ADEs = [0.35, 0.39, 0.53, 0.41, 0.51]
-    target_FDEs = [0.47, 0.70, 0.65, 0.70, 0.55]
+    # target_ADEs = [0.35, 0.39, 0.53, 0.41, 0.51]
+    # target_FDEs = [0.47, 0.70, 0.65, 0.70, 0.55]
     experiments_idx = {
         1: "Convnet: Pretrained + Frozen\nQA LSTM: Rand init + Free",
         2: "Convnet: Rand init + Free\nQA LSTM: Pretrained + Frozen",
@@ -152,6 +153,13 @@ def final_losses_LSTM_networks():
         print("Corresponding Training Loss: ", results_json["train_loss_at_best_val_loss"])
         print("Occuring timestep:           ", results_json["best_val_loss_timestep"])
         print("\n\n")
+
+
+def compare_results(model_name, runs):
+    # import src.config.config as config
+    # default_args = config.parse_args()
+    # src.data_utils.utils.load_model_from_parameter_file(0, default_args=default_args)
+    pass
 
 
 def make_defaults_csv():
