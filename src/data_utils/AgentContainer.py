@@ -13,7 +13,7 @@ else:
   import src.data_utils.Support as sup
 
 
-class AgentContainer():
+class AgentContainer:
   """
   Container for all agents in one demonstration. 
   This data structure provides an interface to easily store and access data of various agents.
@@ -115,7 +115,7 @@ class AgentContainer():
           cnt += 1
     return vel_array
   
-  def plot(self, ax, x_scale = 1, y_scale = 1):
+  def plot(self, ax, x_scale=1, y_scale=1, alpha=0.5):
     """
     Plots the trajectories and the static occupancy grid of all agents in this container.
     """
@@ -125,13 +125,23 @@ class AgentContainer():
     
     for cnt, id in enumerate(self.agent_data.keys()):
       color_value = scalar_color_map.to_rgba(cnt)
-      self.agent_data[id].plot(ax, color=color_value,x_scale = 1, y_scale = 1)
-      
+      self.agent_data[id].plot(ax, color=color_value, x_scale=1, y_scale=1, alpha=alpha)
+
     #sup.plot_grid(ax, np.array([self.occupancy_grid.center[0], self.occupancy_grid.center[1]]), self.occupancy_grid.gridmap, self.occupancy_grid.resolution, self.occupancy_grid.map_size)
     sup.plot_grid(ax, np.array([0, 0]),self.occupancy_grid.gridmap, self.occupancy_grid.resolution, self.occupancy_grid.map_size)
     ax.set_xlim([-self.occupancy_grid.center[0], self.occupancy_grid.center[0]])
     ax.set_ylim([-self.occupancy_grid.center[1], self.occupancy_grid.center[1]])
     
     ax.set_aspect('equal')
-    
-  
+
+  def get_trajectory_length_dict(self):
+    """
+    provides a dictionary wherein <keys> correspond to trajectory lengths encountered in the data contained by self,
+    and <values> are the number of those trajectories.
+    """
+    traj_len_dict = {}
+    for id, agent_data_obj in self.agent_data.items():
+      for traj in agent_data_obj.trajectories:
+        traj_len_dict.setdefault(len(traj), 0)
+        traj_len_dict[len(traj)] += 1
+    return traj_len_dict

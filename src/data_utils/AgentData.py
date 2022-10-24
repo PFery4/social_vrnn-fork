@@ -61,6 +61,6 @@ class AgentData():
     else:
       return None
   
-  def plot(self, ax, color='b', x_scale = 1, y_scale = 1):
+  def plot(self, ax, color='b', x_scale=1, y_scale=1, alpha=0.5):
     for t in self.trajectories:
-      ax.plot(t.pose_vec[:,0]*x_scale, t.pose_vec[:,1]*y_scale, color=color)
+      ax.plot(t.pose_vec[:, 0]*x_scale, t.pose_vec[:, 1]*y_scale, color=color, alpha=alpha)
