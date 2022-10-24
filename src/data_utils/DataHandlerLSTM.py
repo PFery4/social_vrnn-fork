@@ -215,17 +215,23 @@ class DataHandlerLSTM:
         """
 		Processes the simulation or real-world data, depending on the usage.
 		"""
+
+        save = True
+        load_pkl = True
+
         data_pickle = self.data_path + self.scenario + "/data" + str(self.prediction_horizon) + "_" + str(
             self.tbpl) + "_" + str(
             self.prev_horizon) + ".pickle"
-        if os.path.isfile(data_pickle):
+        if os.path.isfile(data_pickle) and load_pkl:
             self.loadTrajectoryData(data_pickle)
 
         elif "real_world" in data_pickle:
-            print("Processing real-world data.")
-
             self._process_real_data_()
-            self.saveTrajectoryData(data_pickle)
+
+            if save:
+                self.saveTrajectoryData(data_pickle)
+            else:
+                print("SAVING TO PICKLE FILE NOT DONE, LOOK AT processData METHOD")
 
         # elif "simulation" in data_pickle: 	# !!! --> not encountered
         # 	print("Processing simulation data.")
@@ -626,7 +632,7 @@ class DataHandlerLSTM:
         idx_vz = 6
         _tmp_dt = self.dt
         self.dt = 0.4  # seconds (equivalent to 2.5 fps)
-        if os.path.split(self.data_path)[-1] == 'seq_eth':
+        if os.path.split(self.scenario)[-1] == 'seq_eth':
             frames_between_annotation = 6.0
         else:
             frames_between_annotation = 10.0
@@ -638,10 +644,12 @@ class DataHandlerLSTM:
             pose = np.zeros([1, 3])
             vel = np.zeros([1, 3])
             pose[:, 0] = pedestrian_data[sample_idx, idx_posx]
-            if self.scenario == "zara_02":
-                pose[:, 1] = pedestrian_data[sample_idx, idx_posy] + 14
-            else:
-                pose[:, 1] = pedestrian_data[sample_idx, idx_posy]
+            # if os.path.split(self.scenario)[-1] == "zara_02":         # <-- INCORRECT, (try plot method of agentcontainer)
+            #     pose[:, 1] = pedestrian_data[sample_idx, idx_posy] + 14
+            # else:
+            #     pose[:, 1] = pedestrian_data[sample_idx, idx_posy]
+            pose[:, 1] = pedestrian_data[sample_idx, idx_posy]
+
             vel[:, 0] = pedestrian_data[sample_idx, idx_vx]
             vel[:, 1] = pedestrian_data[sample_idx, idx_vy]
 
@@ -833,7 +841,7 @@ class DataHandlerLSTM:
         return filtered_state_means
 
     def saveTrajectoryData(self, save_path):
-        print("Saving data to: '{}'".format(save_path))
+        print(f"Saving data to:\n{save_path}")
         if not os.path.isdir(self.data_path + self.scenario):
             os.makedirs(self.data_path + self.scenario)
 
@@ -934,7 +942,8 @@ class DataHandlerLSTM:
                     [current_pos[0],
                      current_pos[1],
                      current_vel[0],
-                     current_vel[1]])
+                     current_vel[1]]
+                )
                 # batch_vel[batch_idx, tbp_step, prev_step*self.input_state_dim:(prev_step+1)*self.input_state_dim] = np.array([np.linalg.norm(current_vel),
                 #                                                                                                              np.arctan2(current_vel[1],current_vel[0])])
                 batch_vel[batch_idx, tbp_step,
@@ -1079,7 +1088,8 @@ class DataHandlerLSTM:
             other_agents_pos.append(
                 self.fillBatch(agent_id, ii, int(self.sequence_idx[ii]), self.tbpl, self.batch_x, self.batch_vel,
                                self.batch_pos, self.batch_grid, self.pedestrian_grid, self.batch_goal, self.batch_y,
-                               traj, self.batch_pos_target, centered_grid=self.centered_grid))
+                               traj, self.batch_pos_target, centered_grid=self.centered_grid)
+            )
             self.sequence_idx[ii] += self.tbpl
 
         if self.rotated_grid:
