@@ -14,6 +14,7 @@ from colorama import Fore, Style
 import tensorflow as tf
 # import src.data_utils.MultiDatasetsDataHandlerLSTM as multidhlstm
 from src.config.config import parse_args, prepare_model_directory
+import random
 
 
 # MAIN FUNCTION ########################################################################################################
@@ -36,6 +37,11 @@ if __name__ == '__main__':
 
     # preparing the directories for storing logs and model parameters
     prepare_model_directory(args)
+
+    # setting the seed for random number generators
+    tf.set_random_seed(args.rng_seed)
+    np.random.seed(args.rng_seed)
+    random.seed(args.rng_seed)
 
     # Create Datahandler class
     data_prep = dhlstm.DataHandlerLSTM(args)

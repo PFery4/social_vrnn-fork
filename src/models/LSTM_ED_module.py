@@ -25,6 +25,9 @@ class LSTMEncoderDecoder:
             - lstmed_reverse_time_prediction    : bool, indicates if the model is to reconstruct the input in reverse time
         """
 
+        # setting the seed for random number generators
+        np.random.seed(args.rng_seed)
+
         # defining Filesystem relevant parameters
         self.scope_name = 'lstm_encoder_decoder'
         self.id = args.lstmed_exp_num

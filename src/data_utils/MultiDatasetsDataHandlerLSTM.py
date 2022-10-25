@@ -19,13 +19,11 @@ class MultiDataHandler:
 
     def __init__(self, args, datasets):
         """
-
         datasets is a list containing one or more of the following str: ['ewap_dataset/seq_hotel',
                                                                          'ewap_dataset/seq_eth',
                                                                          'st',
                                                                          'zara_01',
                                                                          'zara_02']
-
         """
         self.datasets = datasets
         self.dataHandlers = []

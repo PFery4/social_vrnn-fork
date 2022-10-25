@@ -33,6 +33,10 @@ class DataHandlerLSTM:
 
     def __init__(self, args):
 
+        # setting the seed for random number generators
+        np.random.seed(args.rng_seed)
+        random.seed(args.rng_seed)
+
         self.data_path = args.data_path
         self.scenario = args.scenario
         self.batch_size = args.batch_size
@@ -925,6 +929,9 @@ class DataHandlerLSTM:
             # Input values
             query_time = trajectory.time_vec[start_idx + tbp_step]
             for prev_step in range(self.prev_horizon, -1, -1):
+
+                # print(f"batch_idx {batch_idx}, start_idx {start_idx}, tbp_step {tbp_step}, prev_step {prev_step}, traj_idx {start_idx + tbp_step - prev_step}")
+
                 current_pos = np.array(
                     [trajectory.pose_vec[start_idx + tbp_step - prev_step, 0],
                      trajectory.pose_vec[start_idx + tbp_step - prev_step, 1]]

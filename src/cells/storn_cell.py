@@ -5,6 +5,9 @@ if sys.version_info[0] < 3:
 else:
   from src.models.tf_utils import *
 
+
+tf.set_random_seed(314159265)
+
 class VariationalRNNCell(tf.contrib.rnn.RNNCell):
     """Variational RNN cell."""
 
