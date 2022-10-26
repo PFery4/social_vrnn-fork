@@ -33,9 +33,9 @@ class DataHandlerLSTM:
 
     def __init__(self, args):
 
-        # setting the seed for random number generators
-        np.random.seed(args.rng_seed)
-        random.seed(args.rng_seed)
+        # # setting the seed for random number generators
+        # np.random.seed(args.rng_seed)
+        # random.seed(args.rng_seed)
 
         self.data_path = args.data_path
         self.scenario = args.scenario
@@ -219,7 +219,7 @@ class DataHandlerLSTM:
         """
 		Processes the simulation or real-world data, depending on the usage.
 		"""
-
+        # for debugging
         save = True
         load_pkl = True
 

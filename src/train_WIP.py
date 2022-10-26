@@ -38,10 +38,10 @@ if __name__ == '__main__':
     # preparing the directories for storing logs and model parameters
     prepare_model_directory(args)
 
-    # setting the seed for random number generators
-    tf.set_random_seed(args.rng_seed)
-    np.random.seed(args.rng_seed)
-    random.seed(args.rng_seed)
+    # # setting the seed for random number generators
+    # tf.set_random_seed(args.rng_seed)
+    # np.random.seed(args.rng_seed)
+    # random.seed(args.rng_seed)
 
     # Create Datahandler class
     data_prep = dhlstm.DataHandlerLSTM(args)

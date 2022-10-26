@@ -128,8 +128,8 @@ def parse_args():
     correction_div_loss_in_total_loss = False
     correction_annealing_kl_loss = "codebase"     # can be either "codebase" or "article"
 
-    # Random Seed
-    rng_seed = 314159265
+    # # Random Seed
+    # rng_seed = 314159265
 
     parser = argparse.ArgumentParser(description='LSTM model training')
 
@@ -329,10 +329,10 @@ def parse_args():
                              '"codebase" or "article". Defaults to "codebase".',
                         type=str, default=correction_annealing_kl_loss) # it seems that "codebase" is right. "article" results in failed runs
 
-    # RNG
-    parser.add_argument('--rng_seed',
-                        help='Random Seed for weight initialization',
-                        type=int, default=rng_seed)
+    # # RNG
+    # parser.add_argument('--rng_seed',
+    #                     help='Random Seed for weight initialization',
+    #                     type=int, default=rng_seed)
 
     parsed_args = parser.parse_args()
 

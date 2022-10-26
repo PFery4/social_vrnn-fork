@@ -95,6 +95,7 @@ if __name__ == '__main__':
     args.truncated_backprop_length = 1
     args.batch_size = 1
     args.keep_prob = 1.0
+    # args.rng_seed = 314159265
 
     training_scenario = args.scenario
     args.scenario = test_args.scenario
@@ -202,18 +203,19 @@ if __name__ == '__main__':
                     else:
                         batch_y_pred = deepcopy(batch_vel)
                         batch_y_pred[:, :, 2:] = y_model_pred[:, :, 2:]
-                input_dict = {"batch_x": batch_x,
-                        "batch_vel": batch_vel,
-                        "batch_pos": batch_pos,
-                        "batch_grid": batch_grid,
-                        "batch_ped_grid": other_agents_info,
-                        "step": step,
-                        "batch_goal": batch_goal,
-                        "state_noise": 0.0,
-                        "grid_noise": 0.0,
-                        "concat_noise": 0.0,
-                        "other_agents_pos": [other_agents_pos]
-                        }
+                input_dict = {
+                    "batch_x": batch_x,
+                    "batch_vel": batch_vel,
+                    "batch_pos": batch_pos,
+                    "batch_grid": batch_grid,
+                    "batch_ped_grid": other_agents_info,
+                    "step": step,
+                    "batch_goal": batch_goal,
+                    "state_noise": 0.0,
+                    "grid_noise": 0.0,
+                    "concat_noise": 0.0,
+                    "other_agents_pos": [other_agents_pos]
+                }
                 feed_dict_ = model.feed_test_dic(**input_dict)
 
                 # Append to logging series

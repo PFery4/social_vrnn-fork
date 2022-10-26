@@ -13,8 +13,8 @@ class NetworkModel():
 
     def __init__(self, args, is_training=True, batch_size=None):
 
-        # setting the seed for random number generators
-        np.random.seed(args.rng_seed)
+        # # setting the seed for random number generators
+        # np.random.seed(args.rng_seed)
 
         self.log_dir = args.log_dir
         self.args = args
