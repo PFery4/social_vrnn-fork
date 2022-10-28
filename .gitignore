@@ -8,3 +8,4 @@ social_vrnn.egg-info
 build
 .idea
 docs/results_figures
+docs/dataset_analysis
