@@ -12,22 +12,48 @@ import numpy as np
 import math
 
 
-def centered_traj_pos(pose_vec, vel_vec):
-    # TODO: FINISH TRAJECTORY ORIENTATION
-    heading = math.atan2(vel_vec[0, 0], vel_vec[0, 1])
-    centered_pos = pose_vec - pose_vec[0]
-    return
+def centered_traj_pos(pose_vec, vel_vec, center_idx):
 
-def plot_trajectory(ax, trajectory_object):
-    """
-    plots the trajectory
-    """
-    centered_pose_vec = centered_traj_pos(trajectory_object.pose_vec)
-    ax.plot(centered_pose_vec[:, 0], centered_pose_vec[:, 1], color="blue")
+    centered_pos = pose_vec - pose_vec[center_idx]
 
-def describe_motion(trajectory_object):
+    # heading = np.arctan2(vel_vec[center_idx + 1, 1], vel_vec[center_idx + 1, 0]) - np.pi/2
+    heading = np.arctan2(centered_pos[center_idx + 1, 1], centered_pos[center_idx + 1, 0]) - np.pi/2
+
+    rot_mat = np.array(
+        [[np.cos(-heading), -np.sin(-heading), 0],
+         [np.sin(-heading), np.cos(-heading), 0],
+         [0, 0, 1]]
+    )
+
+    centered_pos = np.dot(rot_mat, centered_pos.transpose()).transpose()
+
+    return centered_pos
+
+def plot_trajectory(ax, centered_pose_vec, center_idx, color):
+    ax.plot(centered_pose_vec[center_idx + 1:, 0], centered_pose_vec[center_idx + 1:, 1], color=color, alpha=0.5)
+    # ax.plot(centered_pose_vec[:center_idx + 1, 0], centered_pose_vec[:center_idx + 1, 1], color='grey', linestyle='dashed')
+
+def describe_motion(centered_pose_vec):
     """
-    Determines if the trajectory is a turn in a direction, a straight line, a stop, or something else
+    Determines if the trajectory is a turn in a direction, a straight line forward, a stop, or backward motion
+    """
+    idle_radius = 0.3           # [meters]
+    straight_line_angle = 10        # [degrees]
+    if np.linalg.norm(centered_pose_vec[-1]) < idle_radius:
+        return "idle"
+    elif centered_pose_vec[-1, 1] < 0:
+        return "backward"
+    elif np.abs(np.arctan2(centered_pose_vec[-1, 0], centered_pose_vec[-1, 1])) < straight_line_angle * np.pi/180:
+        return "forward"
+    elif centered_pose_vec[-1, 0] < 0:
+        return "left"
+    else:
+        return "right"
+
+
+def compute_average_curvature(centered_pose_vec):
+    """
+    Determines the trajectory's average curvature
     """
     pass
 
@@ -46,6 +72,14 @@ if __name__ == '__main__':
     ]
     args_list = []
     data_preps = []
+
+    colors = {
+        "idle": "red",
+        "backward": "purple",
+        "forward": "green",
+        "left": "orange",
+        "right": "blue"
+    }
 
     for scenario in scenarii:
         args.scenario = scenario
@@ -77,18 +111,23 @@ if __name__ == '__main__':
         # print(traj_id_list)
 
         # # To get a Batch of Data:
-        # batch_x, \
-        # batch_vel, \
-        # batch_pos, \
-        # batch_goal, \
-        # batch_grid, \
-        # batch_ped_grid, \
-        # batch_y, \
-        # batch_pos_target, \
-        # other_agents_pos, \
-        # new_epoch = data_prep.getBatch()
+        # for i in range(1000):
+        #     batch_x, \
+        #     batch_vel, \
+        #     batch_pos, \
+        #     batch_goal, \
+        #     batch_grid, \
+        #     batch_ped_grid, \
+        #     batch_y, \
+        #     batch_pos_target, \
+        #     other_agents_pos, \
+        #     new_epoch = data_prep.getBatch()
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+        fig.suptitle(f"Dataset: {data_prep.scenario}\n[ttrunc, prev_h, pred_h]: [{args.truncated_backprop_length}, {args.prev_horizon}, {args.prediction_horizon}]")
+        ax1.set_title("Dataset Trajectory Overview")
+        ax2.set_title("Trajectory Lengths")
+        ax3.set_title("Training Instances Directions")
         sup.plot_grid(
             ax1,
             np.array([0, 0]),
@@ -96,50 +135,84 @@ if __name__ == '__main__':
             data_prep.agent_container.occupancy_grid.resolution,
             data_prep.agent_container.occupancy_grid.map_size
         )
-        ax1.set_xlim([
-            -data_prep.agent_container.occupancy_grid.center[0],
-            data_prep.agent_container.occupancy_grid.center[0]
-        ])
-        ax1.set_ylim([
-            -data_prep.agent_container.occupancy_grid.center[1],
-            data_prep.agent_container.occupancy_grid.center[1]
-        ])
         ax1.set_aspect('equal')
+        ax3.set_aspect('equal')
 
-        trajectory_lengths = []
         counter = 0
+        training_instances = 0
+        kept_trajectories = 0
+        discarded_trajectories = 0
+
+        directions_instances = {}
+
         for agent_id, agent_data_obj in data_prep.agent_container.agent_data.items():
             assert data_prep.agent_container.getNumberOfTrajectoriesForAgent(agent_id) == 1
-            if agent_id in [item[0] for item in data_prep.trajectory_set]:
+            agent_in_traj_set = agent_id in [item[0] for item in data_prep.trajectory_set]
+            trajectory_long_enough = args.prev_horizon + args.truncated_backprop_length + args.prediction_horizon + 1 < len(agent_data_obj.trajectories[0])
+            assert agent_in_traj_set == trajectory_long_enough
+
+            if agent_in_traj_set:
+                color = "red"
+                kept_trajectories += 1
+                cont = False
+            else:
+                color = "grey"
+                discarded_trajectories += 1
+                cont = True
+
+            agent_data_obj.plot(ax1, color=color, x_scale=1, y_scale=1)
+
+            if cont: continue
+
+            start_idx = args.prev_horizon
+            while start_idx + args.truncated_backprop_length + args.prediction_horizon + 1 < len(agent_data_obj.trajectories[0]):
+                begin_idx = start_idx-args.prev_horizon
+                end_idx = start_idx+args.truncated_backprop_length+args.prediction_horizon+1
+
+                time_segment = agent_data_obj.trajectories[0].time_vec[begin_idx:end_idx]
+                pose_segment = agent_data_obj.trajectories[0].pose_vec[begin_idx:end_idx]
+                vel_segment = agent_data_obj.trajectories[0].vel_vec[begin_idx:end_idx]
+
+                prev_pred_split_idx = args.prev_horizon + args.truncated_backprop_length
+
+                prev_pose_segment = pose_segment[:prev_pred_split_idx+1]
+                prev_vel_segment = vel_segment[:prev_pred_split_idx+1]
+
+                start_idx += args.truncated_backprop_length
+
+                centered_pose_vec = centered_traj_pos(pose_segment, vel_segment, prev_pred_split_idx)
+
+                direction = describe_motion(centered_pose_vec)
+                directions_instances.setdefault(direction, 0)
+                directions_instances[direction] += 1
+
+                color = colors[direction]
+
+                plot_trajectory(ax3, centered_pose_vec, center_idx=prev_pred_split_idx, color=color)
+                training_instances += 1
+
+            if counter == -1:
+                break
+
+        position = ax3.get_ylim()[1] - 0.3
+        ax3.text(x=ax3.get_xlim()[0] + 0.2, y=position, s=f"total: {training_instances}")
+        position -= 0.3
+        for dir, amount in directions_instances.items():
+            ax3.text(x=ax3.get_xlim()[0] + 0.2, y=position, s=f"{dir}: {amount}", color=colors[dir])
+            position -= 0.3
+
+        traj_len_indices = data_prep.agent_container.get_trajectory_length_dict()
+        for key, value in traj_len_indices.items():
+            if key > data_prep.min_length_trajectory:
                 color = "red"
             else:
                 color = "grey"
-            agent_data_obj.plot(ax1, color=color, x_scale=1, y_scale=1)
-            trajectory_lengths.append([agent_id, len(agent_data_obj.trajectories[0])])
-
-            print(agent_data_obj.trajectories[0].vel_vec.shape)
-            print(agent_data_obj.trajectories[0].vel_vec)
-            print(agent_data_obj.trajectories[0].time_vec.shape)
-            print(agent_data_obj.trajectories[0].time_vec)
-            print("\n\n\n")
-            plot_trajectory(ax3, agent_data_obj.trajectories[0])
-
-            if counter == 10:
-                break
-            counter += 1
-
-        traj_len_indices = data_prep.agent_container.get_trajectory_length_dict()
-
-        for key, value in traj_len_indices.items():
-            if key > data_prep.min_length_trajectory:
-                color = "blue"
-            else:
-                color = "red"
             ax2.bar(x=key, height=value, color=color)
-        plt.show()
 
-    # centered_batch_vel = plot_utils.centered_batch_pos_from_vel(batch_vel)
-    # centered_batch_pos = plot_utils.centered_batch_pos(batch_pos)
-    # plot_utils.plot_batch_vel_and_pos(centered_batch_vel,
-    #                                   centered_batch_pos,
-    #                                   block=True)
+        total_trajectories = kept_trajectories + discarded_trajectories
+        ax2.text(x=0.2*(ax2.get_xlim()[1]-ax2.get_xlim()[0]), y=ax2.get_ylim()[1]-1, s=f"Kept: {kept_trajectories} ({kept_trajectories/total_trajectories*100:.2f}% of total dataset)", color="red")
+        ax2.text(x=0.2*(ax2.get_xlim()[1]-ax2.get_xlim()[0]), y=ax2.get_ylim()[1]-2, s=f"Discarded: {discarded_trajectories}", color="grey")
+        ax2.text(x=0.2*(ax2.get_xlim()[1]-ax2.get_xlim()[0]), y=ax2.get_ylim()[1]-3, s=f"Total: {total_trajectories}")
+
+    plt.show()
+

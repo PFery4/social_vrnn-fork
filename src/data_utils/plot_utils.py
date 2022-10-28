@@ -1290,17 +1290,46 @@ def centered_batch_pos_from_vel(batch_vel):
     return processed_batch_vel
 
 
+def centered_batch_instance_from_vel(vel_instance):
+    """
+    vel_instance is a velocity signal instance, ie a training instance sampled from a batch of velocities, batch_vel
+    """
+    vel_instance_copy = np.copy(vel_instance)
+
+    dt = 0.4
+    vel_instance_copy *= -dt
+
+    # processed_vel_instance = np.zeros(vel_instance_copy.shape[1] + 2 * (vel_instance_copy.shape[0] - 2))
+    full_series = vel_instance_copy[-1, :]
+    for t_idx in range(vel_instance_copy.shape[0]-1 , 1, -1):
+        full_series = np.append(full_series, vel_instance_copy[t_idx - 1, -2:])
+    full_series[::2] = np.cumsum(full_series[::2])
+    full_series[1::2] = np.cumsum(full_series[1::2])
+    full_series = np.append(np.zeros(2), full_series, axis=0)
+    return full_series
+
+
 def plot_centered_batch_vel(axs, batch_vel, label, color):
     """
     Takes a velocity batch, processes it with centered_batch_pos_from_vel, and plots the batch in a figure for better
     visualization:
+    axs is a numpy array of shape (4, 4) containing axes for plotting individual trajectories
+    """
+    for b_idx in range(16):
+        row_idx, col_idx = b_idx // 4, b_idx % 4
+        plot_centered_vel_instance(ax=axs[row_idx, col_idx], vel_instance=batch_vel[b_idx], label=label, color=color)
+
+
+def plot_centered_vel_instance(ax, vel_instance, label, color):
+    """
+    Takes a velocity batch element, processes it with centered_batch_instance_from_vel, and plots the batch in a figure for better
+    visualization:
 
     axs is a numpy array of shape (4, 4) containing axes for plotting individual trajectories
     """
-    centered_batch_vel = centered_batch_pos_from_vel(batch_vel)
-    for b_idx in range(16):
-        row_idx, col_idx = b_idx // 4, b_idx % 4
-        axs[row_idx, col_idx].plot(centered_batch_vel[b_idx, ::2], centered_batch_vel[b_idx, 1::2], label=label, color=color)
+    centered_vel_instance = centered_batch_instance_from_vel(vel_instance)
+    ax.plot(centered_vel_instance[::2], centered_vel_instance[1::2], label=label, color=color, alpha=0.8)
+
 
 def plot_batch_vel_and_pos(centered_batch_vel, centered_batch_pos, block=False):
     """
