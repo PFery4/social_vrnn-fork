@@ -13,7 +13,11 @@ import math
 
 
 def centered_traj_pos(pose_vec, vel_vec, center_idx):
-
+    """
+    takes a pose_vec of shape [trajectory_length, 3], centers it such that the pose_vec[center_idx] is at the origin,
+    and then rotates the trajectory such that the segment described by the trajectory pose_vec[center_idx:center_idx+1]
+    is facing the [x, y, z] == [0, 1, 0] direction.
+    """
     centered_pos = pose_vec - pose_vec[center_idx]
 
     # heading = np.arctan2(vel_vec[center_idx + 1, 1], vel_vec[center_idx + 1, 0]) - np.pi/2
@@ -55,7 +59,7 @@ def compute_average_curvature(centered_pose_vec):
     """
     Determines the trajectory's average curvature
     """
-    pass
+    pass #TODO
 
 
 if __name__ == '__main__':
@@ -73,7 +77,7 @@ if __name__ == '__main__':
     args_list = []
     data_preps = []
 
-    colors = {
+    dir_colors = {
         "idle": "red",
         "backward": "purple",
         "forward": "green",
@@ -101,7 +105,7 @@ if __name__ == '__main__':
         print(f"created datahandler with scenario: {data_prep.scenario}")
 
     for data_prep_idx, data_prep in enumerate(data_preps):
-        print("LOOKING AT DATAPREP: ", data_prep_idx)
+        print(f"PROCESSING DATAPREP: {data_prep_idx}")
 
         # Sorting the trajectory set
         # data_prep.trajectory_set.sort(key=lambda tup: tup[0])
@@ -123,11 +127,13 @@ if __name__ == '__main__':
         #     other_agents_pos, \
         #     new_epoch = data_prep.getBatch()
 
-        fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+        fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5)
         fig.suptitle(f"Dataset: {data_prep.scenario}\n[ttrunc, prev_h, pred_h]: [{args.truncated_backprop_length}, {args.prev_horizon}, {args.prediction_horizon}]")
         ax1.set_title("Dataset Trajectory Overview")
         ax2.set_title("Trajectory Lengths")
         ax3.set_title("Training Instances Directions")
+        ax4.set_title("Average Speed [m/s]")
+        ax5.set_title("Distance [m]")
         sup.plot_grid(
             ax1,
             np.array([0, 0]),
@@ -140,7 +146,8 @@ if __name__ == '__main__':
 
         counter = 0
         training_instances = 0
-        kept_trajectories = 0
+        train_trajectories = 0
+        test_trajectories = 0
         discarded_trajectories = 0
 
         directions_instances = {}
@@ -148,47 +155,77 @@ if __name__ == '__main__':
         for agent_id, agent_data_obj in data_prep.agent_container.agent_data.items():
             assert data_prep.agent_container.getNumberOfTrajectoriesForAgent(agent_id) == 1
             agent_in_traj_set = agent_id in [item[0] for item in data_prep.trajectory_set]
+            train_test_split_idx = int(len(data_prep.trajectory_set) * data_prep.train_set)
+            agent_in_training_set = agent_id in [item[0] for item in data_prep.trajectory_set[0:train_test_split_idx]]
+            agent_in_testing_set = agent_id in [item[0] for item in data_prep.trajectory_set[train_test_split_idx:-1]]
             trajectory_long_enough = args.prev_horizon + args.truncated_backprop_length + args.prediction_horizon + 1 < len(agent_data_obj.trajectories[0])
             assert agent_in_traj_set == trajectory_long_enough
 
-            if agent_in_traj_set:
+            skip = False
+            if agent_in_training_set:
                 color = "red"
-                kept_trajectories += 1
-                cont = False
+                train_trajectories += 1
+            elif agent_in_testing_set:
+                color = "blue"
+                test_trajectories += 1
             else:
                 color = "grey"
                 discarded_trajectories += 1
-                cont = True
+                skip = True
 
             agent_data_obj.plot(ax1, color=color, x_scale=1, y_scale=1)
 
-            if cont: continue
+            if skip:
+                continue
 
             start_idx = args.prev_horizon
             while start_idx + args.truncated_backprop_length + args.prediction_horizon + 1 < len(agent_data_obj.trajectories[0]):
                 begin_idx = start_idx-args.prev_horizon
-                end_idx = start_idx+args.truncated_backprop_length+args.prediction_horizon+1
+                end_idx = start_idx+args.truncated_backprop_length+args.prediction_horizon + 1
 
                 time_segment = agent_data_obj.trajectories[0].time_vec[begin_idx:end_idx]
                 pose_segment = agent_data_obj.trajectories[0].pose_vec[begin_idx:end_idx]
                 vel_segment = agent_data_obj.trajectories[0].vel_vec[begin_idx:end_idx]
 
-                prev_pred_split_idx = args.prev_horizon + args.truncated_backprop_length
+                t0_idx = args.prev_horizon + args.truncated_backprop_length
 
-                prev_pose_segment = pose_segment[:prev_pred_split_idx+1]
-                prev_vel_segment = vel_segment[:prev_pred_split_idx+1]
+                pose_segment_Tobs_t0 = pose_segment[:t0_idx + 1]
+                vel_segment_Tobs_t0 = vel_segment[:t0_idx + 1]
+                pose_segment_t0_Tpred = pose_segment[t0_idx:]
+                vel_segment_t0_Tpred = vel_segment[t0_idx:]
 
-                start_idx += args.truncated_backprop_length
+                centered_pose_vec = centered_traj_pos(pose_segment, vel_segment, t0_idx)
 
-                centered_pose_vec = centered_traj_pos(pose_segment, vel_segment, prev_pred_split_idx)
+                distance_Tobs_Tpred = np.linalg.norm(pose_segment[0] - pose_segment[-1])
+                distance_Tobs_t0 = np.linalg.norm(pose_segment_Tobs_t0[0] - pose_segment_Tobs_t0[-1])
+                distance_t0_Tpred = np.linalg.norm(pose_segment_t0_Tpred[0] - pose_segment_t0_Tpred[-1])
+
+                average_velocity_Tobs_Tpred = np.mean(np.linalg.norm(vel_segment, axis=1))
+                average_velocity_Tobs_t0 = np.mean(np.linalg.norm(vel_segment_Tobs_t0, axis=1))
+                average_velocity_t0_Tpred = np.mean(np.linalg.norm(vel_segment_t0_Tpred, axis=1))
+
+                ax4.scatter(0+int(agent_in_testing_set)+np.random.normal(0, 0.1), average_velocity_Tobs_t0, color=color, alpha=0.5)
+                ax5.scatter(0+int(agent_in_testing_set)+np.random.normal(0, 0.1), distance_Tobs_t0, color=color, alpha=0.5)
+                ax4.scatter(3+int(agent_in_testing_set)+np.random.normal(0, 0.1), average_velocity_t0_Tpred, color=color, alpha=0.5)
+                ax5.scatter(3+int(agent_in_testing_set)+np.random.normal(0, 0.1), distance_t0_Tpred, color=color, alpha=0.5)
+                ax4.scatter(6+int(agent_in_testing_set)+np.random.normal(0, 0.1), average_velocity_Tobs_Tpred, color=color, alpha=0.5)
+                ax5.scatter(6+int(agent_in_testing_set)+np.random.normal(0, 0.1), distance_Tobs_Tpred, color=color, alpha=0.5)
+
+                ax4.set_xticks([0.5, 3.5, 6.5])
+                ax4.set_xticklabels(["-Tobs:t0", "t0:Tpred", "-Tobs:Tpred"])
+                ax5.set_xticks([0.5, 3.5, 6.5])
+                ax5.set_xticklabels(["-Tobs:t0", "t0:Tpred", "-Tobs:Tpred"])
 
                 direction = describe_motion(centered_pose_vec)
                 directions_instances.setdefault(direction, 0)
                 directions_instances[direction] += 1
 
-                color = colors[direction]
+                direction_color = dir_colors[direction]
 
-                plot_trajectory(ax3, centered_pose_vec, center_idx=prev_pred_split_idx, color=color)
+                if agent_in_training_set:
+                    plot_trajectory(ax3, centered_pose_vec, center_idx=t0_idx, color=direction_color)
+
+                start_idx += args.truncated_backprop_length
                 training_instances += 1
 
             if counter == -1:
@@ -198,7 +235,7 @@ if __name__ == '__main__':
         ax3.text(x=ax3.get_xlim()[0] + 0.2, y=position, s=f"total: {training_instances}")
         position -= 0.3
         for dir, amount in directions_instances.items():
-            ax3.text(x=ax3.get_xlim()[0] + 0.2, y=position, s=f"{dir}: {amount}", color=colors[dir])
+            ax3.text(x=ax3.get_xlim()[0] + 0.2, y=position, s=f"{dir}: {amount}", color=dir_colors[dir])
             position -= 0.3
 
         traj_len_indices = data_prep.agent_container.get_trajectory_length_dict()
@@ -209,10 +246,9 @@ if __name__ == '__main__':
                 color = "grey"
             ax2.bar(x=key, height=value, color=color)
 
-        total_trajectories = kept_trajectories + discarded_trajectories
-        ax2.text(x=0.2*(ax2.get_xlim()[1]-ax2.get_xlim()[0]), y=ax2.get_ylim()[1]-1, s=f"Kept: {kept_trajectories} ({kept_trajectories/total_trajectories*100:.2f}% of total dataset)", color="red")
+        total_trajectories = train_trajectories + discarded_trajectories
+        ax2.text(x=0.2*(ax2.get_xlim()[1]-ax2.get_xlim()[0]), y=ax2.get_ylim()[1]-1, s=f"Kept: {train_trajectories} ({train_trajectories / total_trajectories * 100:.2f}% of total dataset)", color="red")
         ax2.text(x=0.2*(ax2.get_xlim()[1]-ax2.get_xlim()[0]), y=ax2.get_ylim()[1]-2, s=f"Discarded: {discarded_trajectories}", color="grey")
         ax2.text(x=0.2*(ax2.get_xlim()[1]-ax2.get_xlim()[0]), y=ax2.get_ylim()[1]-3, s=f"Total: {total_trajectories}")
 
     plt.show()
-
