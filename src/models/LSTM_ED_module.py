@@ -561,7 +561,7 @@ def train_LSTM_ED_module():
 
     num_steps = args.total_training_steps
     log_freq = 10
-    save = False
+    save = True
     plot_show = not save
 
     # save_path specified relative to src folder
