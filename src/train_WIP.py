@@ -82,7 +82,7 @@ if __name__ == '__main__':
             if args.warm_start_convnet:
                 model.warmstart_convnet(args, sess)
         except:
-            print(Fore.RED + "Failed to initialized Convnet or Convnet does not exist" + Style.RESET_ALL)
+            print(Fore.RED + "Failed to initialize Convnet or Convnet does not exist" + Style.RESET_ALL)
             exit()
 
         # Load Query Agent Past Trajectory autoencoder
