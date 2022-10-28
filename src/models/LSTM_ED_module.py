@@ -10,6 +10,7 @@ import tensorflow as tf
 import numpy as np
 import colorama
 import json
+import scipy
 
 
 class LSTMEncoderDecoder:
@@ -568,6 +569,11 @@ def train_LSTM_ED_module():
     save_path = f"../trained_models/LSTM_ED_module/{args.lstmed_exp_num}"
     results_path = os.path.join(save_path, "results")
 
+    # Data augmentation parameters
+    scaler_min = 0.3
+    scaler_max = 1.7
+    scaler_sigma = 0.5
+
     if save:
         print(colorama.Fore.GREEN +
               f"Creating folder to save model parameters in:\n{save_path}" +
@@ -588,7 +594,7 @@ def train_LSTM_ED_module():
         lstm_ae_module = LSTMEncoderDecoder(args=args)
 
         # initializing weights
-        # session.run(tf.global_variables_initializer())
+        session.run(tf.global_variables_initializer())
         lstm_ae_module.initialize_random_weights(sess=session)
 
         # # THIS IS FOR LOADING AN ALREADY TRAINED ARCHITECTURE
@@ -603,22 +609,61 @@ def train_LSTM_ED_module():
         best_loss_idx = 0
         # _, batch_vel, _, _, _, _, _, _, _, _ = data_prep.getBatch()
         for step in range(num_steps):
-            _, batch_vel, _, _, _, _, _, _, _, _ = data_prep.getBatch()
+            _, batch_vel, _, _, _, _, batch_y, _, _, _ = data_prep.getBatch()
+
+            # modifying velocity batch signal using data augmentation technique
+            new_batch_vel = np.copy(batch_vel)
+
+            # Randomly sample a scaling factor from a truncated normal distribution with bounds [s_min, s_max], mean 1, std sigma
+            scaler = scipy.stats.truncnorm.rvs(
+                (scaler_min-1)/scaler_sigma,
+                (scaler_max-1)/scaler_sigma,
+                loc=1, scale=scaler_sigma, size=batch_vel.shape[0]
+            )[:, np.newaxis, np.newaxis]
+
+
+            new_batch_vel = new_batch_vel * scaler
+
+            # fig, axs = plt.subplots()
+            # ax_lim = 10
+            # axs.axis("equal")
+            # plt.setp(axs, xlim=[-ax_lim, ax_lim], ylim=[-ax_lim, ax_lim])
+            # fig.canvas.manager.set_window_title("Reconstruction - Visual")
+            # for i in range(batch_vel.shape[0]):
+            #     src.data_utils.plot_utils.plot_centered_vel_instance(
+            #         ax=axs, vel_instance=batch_vel[i], label="GT", color='blue'
+            #     )
+            #     src.data_utils.plot_utils.plot_centered_vel_instance(
+            #         ax=axs, vel_instance=new_batch_vel[i], label="data_aug", color='orange'
+            #     )
+            #     centered_batch_vel = src.data_utils.plot_utils.centered_batch_instance_from_vel(batch_vel[i])
+            #     axs.text(x=centered_batch_vel[-2], y=centered_batch_vel[-1], s=scaler[i, 0, 0])
+            # plt.legend()
+            # plt.show()
+            # Done
 
             lstm_ae_module.reset_cells(data_prep.sequence_reset)
 
-            loss = lstm_ae_module.run_update_step(sess=session, input_data=batch_vel)
+            loss = lstm_ae_module.run_update_step(sess=session, input_data=new_batch_vel)
             train_losses.append(loss.item())
 
             if step % log_freq == 0:
                 testbatch = data_prep.getTestBatch()
+
+                scaler = scipy.stats.truncnorm.rvs(
+                    (scaler_min - 1) / scaler_sigma,
+                    (scaler_max - 1) / scaler_sigma,
+                    loc=1, scale=scaler_sigma, size=batch_vel.shape[0]
+                )[:, np.newaxis, np.newaxis]
+
+                input_batch_vel = testbatch["batch_vel"] * scaler
 
                 lstm_ae_module.reset_test_cells(data_prep.val_sequence_reset)
 
                 val_loss = lstm_ae_module.run_val_step(
                     sess=session,
                     feed_dict_validation=lstm_ae_module.feed_val_dic(
-                        input_data=testbatch["batch_vel"],
+                        input_data=input_batch_vel,
                         state_noise=testbatch["state_noise"]
                     )
                 )
@@ -932,5 +977,5 @@ if __name__ == '__main__':
     # IMPORTANT: please run this script from within the src/ folder (ie, by calling `python3 models/LSTM_ED_module.py`)
 
     # work_with_toy_data()
-    # train_LSTM_ED_module()
-    test_LSTM_ED_module()
+    train_LSTM_ED_module()
+    # test_LSTM_ED_module()

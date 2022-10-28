@@ -1076,6 +1076,9 @@ class DataHandlerLSTM:
         for ii, traj in enumerate(self.batch_sequences):
             if self.sequence_idx[ii] + self.tbpl + self.output_sequence_length + 1 >= len(traj):
                 id, trajectory = self.trajectory_set[self.data_idx]
+                # assert np.all(trajectory.pose_vec == traj.pose_vec)
+                # assert np.all(trajectory.time_vec == traj.time_vec)
+                # assert np.all(trajectory.vel_vec == traj.vel_vec)
                 self.data_idx = (self.data_idx + 1) % int(len(self.trajectory_set) * self.train_set)
                 if self.data_idx == 0:
                     new_epoch = True
