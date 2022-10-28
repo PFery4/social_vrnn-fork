@@ -4,10 +4,12 @@ Implementation of an LSTM Encoder Decoder. It will be used to process the veloci
 
 """
 import argparse
+import csv
 import os.path
 import tensorflow as tf
 import numpy as np
 import colorama
+import json
 
 
 class LSTMEncoderDecoder:
@@ -25,8 +27,8 @@ class LSTMEncoderDecoder:
             - lstmed_reverse_time_prediction    : bool, indicates if the model is to reconstruct the input in reverse time
         """
 
-        # setting the seed for random number generators
-        np.random.seed(args.rng_seed)
+        # # setting the seed for random number generators
+        # np.random.seed(args.rng_seed)
 
         # defining Filesystem relevant parameters
         self.scope_name = 'lstm_encoder_decoder'
@@ -165,10 +167,9 @@ class LSTMEncoderDecoder:
             # Setting the training operation
             self.train_op = self.optimizer.minimize(self.reconstruction_loss)
 
-        # Specifying model variables, along with variable saver and initializer
+        # Specifying model variables, along with variable saver
         self.model_var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.scope_name)
         self.saver = tf.train.Saver(self.model_var_list)
-        self.initializer = tf.initialize_variables(self.model_var_list)
 
     def info_dict(self):
         info_dict = {"batch_size": self.batch_size,
@@ -201,7 +202,7 @@ class LSTMEncoderDecoder:
         print(colorama.Fore.YELLOW +
               "Initializing LSTM Encoder Decoder with random weights" +
               colorama.Style.RESET_ALL)
-        sess.run(self.initializer)
+        sess.run(tf.initialize_variables(self.model_var_list))
 
     def feed_dic(self, input_data):
         """
@@ -218,8 +219,11 @@ class LSTMEncoderDecoder:
             feed_dictionary[getattr(self, f"dec_{i}_hidden_state")] = getattr(self, f"dec_{i}_hidden_state_current")
         return feed_dictionary
 
-    def feed_test_dic(self, input_data, state_noise):
-        feed_dictionary = {self.input_placeholder: input_data}
+    def feed_test_dic(self, input_data, step, state_noise):
+        # print("\nnp.expand_dims(input_data[:, step, :], axis=1)")
+        # print(np.expand_dims(input_data[:, step, :], axis=1).shape)
+        # print(np.expand_dims(input_data[:, step, :], axis=1))
+        feed_dictionary = {self.input_placeholder: np.expand_dims(input_data[:, step, :], axis=1)}
         for i in range(len(self.encoding_layers_dim)):
             feed_dictionary[getattr(self, f"enc_{i}_cell_state")] = np.random.normal(
                 getattr(self, f"enc_{i}_test_cell_state_current").copy(), np.abs(np.mean(np.mean(
@@ -336,7 +340,7 @@ class LSTMEncoderDecoder:
 
         return reconstruction_loss
 
-    def reconstruct(self, sess: tf.Session, input_data: np.array, update_state=True):
+    def reconstruct(self, sess: tf.Session, input_dict: dict, update_state=True):
         """
         produce the reconstruction output of the module upon being fed the input data. Weights are NOT updated.
 
@@ -350,7 +354,7 @@ class LSTMEncoderDecoder:
 
         out_list = sess.run(
             run_list,
-            feed_dict=self.feed_dic(input_data=input_data)
+            feed_dict=input_dict #self.feed_dic(input_data=input_data)
         )
         # reshaping the output data so that it is the same shape as the numpy array fed as input_data
         output_data = out_list[0]
@@ -503,6 +507,40 @@ class LSTMEncoderDecoder:
         return remade_input_after_mask
 
 
+def load_LSTM_ED_module(experiment_number, sess, testing=True):
+    """
+    loads an instance of the LSTM_ED_module with configuration and weights specified by the path.
+    """
+    load_path = os.path.abspath(f"../trained_models/LSTM_ED_module/{experiment_number}")
+    assert os.path.exists(load_path)
+
+    with open(os.path.join(load_path, "parameters.json"), 'r') as file:
+        module_parameters = json.load(file)
+
+    args = argparse.Namespace()
+    args.lstmed_exp_num = experiment_number
+
+    if testing:
+        args.truncated_backprop_length = 1
+        args.batch_size = 1
+    else:
+        args.truncated_backprop_length = module_parameters["truncated_backprop_length"]
+        args.batch_size = module_parameters["batch_size"]
+
+    args.lstmed_n_features = module_parameters["n_features"]
+    args.input_state_dim = module_parameters["input_state_dim"]
+    args.lstmed_reverse_time_prediction = module_parameters["reverse_time_prediction"]
+    args.lstmed_consistent_time_signal = module_parameters["consistent_time_signal"]
+    args.lstmed_encoding_layers = module_parameters["encoding_layers_dim"]
+    args.scenario = module_parameters["scenario"]
+
+    module = LSTMEncoderDecoder(args)
+
+    module.load_model(sess=sess, path=load_path)
+
+    return module
+
+
 def train_LSTM_ED_module():
     """
     A toy example to see how the LSTM_ED module can be trained using the datahandler.
@@ -519,15 +557,15 @@ def train_LSTM_ED_module():
 
     args = src.config.config.parse_args()
 
+    src.data_utils.plot_utils.print_args(args)
+
     num_steps = args.total_training_steps
     log_freq = 10
-    save = True
+    save = False
     plot_show = not save
 
-    model_name = "LSTM_ED_module"
-
     # save_path specified relative to src folder
-    save_path = f"../trained_models/{model_name}/{args.lstmed_exp_num}"
+    save_path = f"../trained_models/LSTM_ED_module/{args.lstmed_exp_num}"
     results_path = os.path.join(save_path, "results")
 
     if save:
@@ -545,123 +583,270 @@ def train_LSTM_ED_module():
     data_prep = src.data_utils.DataHandlerLSTM.DataHandlerLSTM(args=args)
     data_prep.processData()
 
-    session = tf.Session()
-    lstm_ae_module = LSTMEncoderDecoder(args=args)
+    # session = tf.Session()
+    with tf.Session() as session:
+        lstm_ae_module = LSTMEncoderDecoder(args=args)
 
-    # initializing weights
-    session.run(tf.global_variables_initializer())
-    lstm_ae_module.initialize_random_weights(sess=session)
+        # initializing weights
+        # session.run(tf.global_variables_initializer())
+        lstm_ae_module.initialize_random_weights(sess=session)
 
-    # THIS IS FOR LOADING AN ALREADY TRAINED ARCHITECTURE
-    # load_path = os.path.abspath(
-    #     os.path.join(os.path.dirname(__file__), f"../../trained_models/{model_name}/{args.lstmed_exp_num}")
-    # )
-    # lstm_ae_module.load_model(sess=session, path=load_path)
+        # # THIS IS FOR LOADING AN ALREADY TRAINED ARCHITECTURE
+        # lstm_ae_module = load_LSTM_ED_module(args.lstmed_exp_num, sess=session, testing=False)
 
-    lstm_ae_module.describe()
+        lstm_ae_module.describe()
 
-    train_losses = []
-    val_losses = []
-    best_loss = float('inf')
-    train_loss_at_best_loss = float('inf')
-    best_loss_idx = 0
-    # _, batch_vel, _, _, _, _, _, _, _, _ = data_prep.getBatch()
-    for step in range(num_steps):
-        _, batch_vel, _, _, _, _, _, _, _, _ = data_prep.getBatch()
+        train_losses = []
+        val_losses = []
+        best_loss = float('inf')
+        train_loss_at_best_loss = float('inf')
+        best_loss_idx = 0
+        # _, batch_vel, _, _, _, _, _, _, _, _ = data_prep.getBatch()
+        for step in range(num_steps):
+            _, batch_vel, _, _, _, _, _, _, _, _ = data_prep.getBatch()
 
-        lstm_ae_module.reset_cells(data_prep.sequence_reset)
+            lstm_ae_module.reset_cells(data_prep.sequence_reset)
 
-        loss = lstm_ae_module.run_update_step(sess=session, input_data=batch_vel)
-        train_losses.append(loss.item())
+            loss = lstm_ae_module.run_update_step(sess=session, input_data=batch_vel)
+            train_losses.append(loss.item())
 
-        if step % log_freq == 0:
-            testbatch = data_prep.getTestBatch()
+            if step % log_freq == 0:
+                testbatch = data_prep.getTestBatch()
 
-            lstm_ae_module.reset_test_cells(data_prep.val_sequence_reset)
+                lstm_ae_module.reset_test_cells(data_prep.val_sequence_reset)
 
-            val_loss = lstm_ae_module.run_val_step(sess=session,
-                                                   feed_dict_validation=lstm_ae_module.feed_val_dic(
-                                                       input_data=testbatch["batch_vel"],
-                                                       state_noise=testbatch["state_noise"]
-                                                   ))
+                val_loss = lstm_ae_module.run_val_step(
+                    sess=session,
+                    feed_dict_validation=lstm_ae_module.feed_val_dic(
+                        input_data=testbatch["batch_vel"],
+                        state_noise=testbatch["state_noise"]
+                    )
+                )
 
-            val_losses.append(val_loss.item())
+                val_losses.append(val_loss.item())
 
-            log = f"step {str(step).ljust(10)} | Training Loss: {loss:.6f} | Validation Loss: {val_loss:.6f}"
+                log = f"step {str(step).ljust(10)} | Training Loss: {loss:.6f} | Validation Loss: {val_loss:.6f}"
 
-            if val_loss.item() < best_loss and save:
-                lstm_ae_module.save_model(sess=session, path=save_path, step=step)
-                log += " | Saved"
-                best_loss = val_loss.item()
-                train_loss_at_best_loss = loss.item()
-                best_loss_idx = step
+                if val_loss.item() < best_loss and save:
+                    lstm_ae_module.save_model(sess=session, path=save_path, step=step)
+                    log += " | Saved"
+                    best_loss = val_loss.item()
+                    train_loss_at_best_loss = loss.item()
+                    best_loss_idx = step
 
-            print(log)
+                print(log)
 
-    if save:
-        lstm_ae_module.save_model(sess=session, path=save_path, step=step, filename="final-model.ckpt")
+        if save:
+            lstm_ae_module.save_model(sess=session, path=save_path, step=step, filename="final-model.ckpt")
 
-    yhat = lstm_ae_module.reconstruct(sess=session, input_data=batch_vel)
-    # print(session.run(lstm_ae_module.output_tensor, feed_dict=lstm_ae_module.feed_dic(input_data=batch_vel))[5])
+        # Having a look at final reconstructions
+        input_dict = lstm_ae_module.feed_dic(input_data=batch_vel)
+        yhat = lstm_ae_module.reconstruct(sess=session, input_dict=input_dict)
 
-    # print()
-    # print('---Predicted---')
-    # print(np.round(yhat, 5))
-    # print('---Actual---')
-    # print(np.round(batch_vel, 5))
+        # print()
+        # print('---Predicted---')
+        # print(np.round(yhat, 5))
+        # print('---Actual---')
+        # print(np.round(batch_vel, 5))
 
-    plt.rcParams["figure.figsize"] = (16, 12)
-    fig_1 = plt.figure("Reconstruction")
-    plt.scatter(np.arange(yhat.size), yhat.flatten(), label="Prediction", marker="x")
-    plt.scatter(np.arange(batch_vel.size), batch_vel.flatten(), label="Ground Truth", s=40, facecolors="none", edgecolors='r')
-    plt.legend()
-    if save:
-        plt.savefig(os.path.join(results_path, "reconstruction.png"))
+        plt.rcParams["figure.figsize"] = (16, 12)
+        fig_1 = plt.figure("Reconstruction")
+        plt.scatter(np.arange(yhat.size), yhat.flatten(), label="Prediction", marker="x")
+        plt.scatter(np.arange(batch_vel.size), batch_vel.flatten(), label="Ground Truth", s=40, facecolors="none", edgecolors='r')
+        plt.legend()
+        if save:
+            plt.savefig(os.path.join(results_path, "reconstruction.png"))
 
-    fig_2, axs = plt.subplots(nrows=4, ncols=4, sharex=True, sharey=True)
-    ax_lim = 5
-    plt.setp(axs, xlim=[-ax_lim, ax_lim], ylim=[-ax_lim, ax_lim])
-    fig_2.canvas.manager.set_window_title("Reconstruction - Visual")
-    src.data_utils.plot_utils.plot_centered_batch_vel(axs=axs, batch_vel=batch_vel, label="GT", color='blue')
-    src.data_utils.plot_utils.plot_centered_batch_vel(axs=axs, batch_vel=yhat, label="pred", color='orange')
-    plt.legend()
-    if save:
-        plt.savefig(os.path.join(results_path, "visual_reconstruction.png"))
+        fig_2, axs = plt.subplots(nrows=4, ncols=4, sharex=True, sharey=True)
+        ax_lim = 5
+        plt.setp(axs, xlim=[-ax_lim, ax_lim], ylim=[-ax_lim, ax_lim])
+        fig_2.canvas.manager.set_window_title("Reconstruction - Visual")
+        src.data_utils.plot_utils.plot_centered_batch_vel(axs=axs, batch_vel=batch_vel, label="GT", color='blue')
+        src.data_utils.plot_utils.plot_centered_batch_vel(axs=axs, batch_vel=yhat, label="pred", color='orange')
+        plt.legend()
+        if save:
+            plt.savefig(os.path.join(results_path, "visual_reconstruction.png"))
 
-    output_dict = {"train_losses": train_losses,
-                   "val_losses": val_losses,
-                   "num_steps": num_steps,
-                   "log_freq": log_freq,
-                   "dataset": os.path.basename(data_prep.scenario),
-                   "best_validation_loss": best_loss,
-                   "train_loss_at_best_val_loss": train_loss_at_best_loss,
-                   "best_val_loss_timestep": best_loss_idx}
+        output_dict = {"train_losses": train_losses,
+                       "val_losses": val_losses,
+                       "num_steps": num_steps,
+                       "log_freq": log_freq,
+                       "dataset": os.path.basename(data_prep.scenario),
+                       "best_validation_loss": best_loss,
+                       "train_loss_at_best_val_loss": train_loss_at_best_loss,
+                       "best_val_loss_timestep": best_loss_idx}
 
-    param_dict = lstm_ae_module.info_dict()
-    param_dict.update(
-        {
-            "scenario": args.scenario,
-            "total_training_steps": args.total_training_steps
-        }
-    )
+        param_dict = lstm_ae_module.info_dict()
+        param_dict.update(
+            {
+                "scenario": args.scenario,
+                "total_training_steps": args.total_training_steps
+            }
+        )
 
-    if save:
-        with open(os.path.join(save_path, "parameters.json"), 'w') as file:
-            json.dump(param_dict, file, indent=4)
-        with open(os.path.join(results_path, "results.json"), 'w') as file:
-            json.dump(output_dict, file)
-        with open(os.path.join(results_path, "results.pkl"), 'wb') as file:
-            pkl.dump(output_dict, file, protocol=2)
+        if save:
+            with open(os.path.join(save_path, "parameters.json"), 'w') as file:
+                json.dump(param_dict, file, indent=4)
+            with open(os.path.join(results_path, "results.json"), 'w') as file:
+                json.dump(output_dict, file)
+            with open(os.path.join(results_path, "results.pkl"), 'wb') as file:
+                pkl.dump(output_dict, file, protocol=2)
 
-    fig_3 = plt.figure("Loss Graph")
-    plt.plot(list(range(0, num_steps, log_freq)), val_losses, label="Val Loss")
-    plt.plot(list(range(0, num_steps)), train_losses, label="Train Loss")
-    plt.legend()
-    if save:
-        plt.savefig(os.path.join(results_path, "loss_graph.png"))
+        fig_3 = plt.figure("Loss Graph")
+        plt.plot(list(range(0, num_steps, log_freq)), val_losses, label="Val Loss")
+        plt.plot(list(range(0, num_steps)), train_losses, label="Train Loss")
+        plt.legend()
+        if save:
+            plt.savefig(os.path.join(results_path, "loss_graph.png"))
 
-    if plot_show:
-        plt.show()
+        if plot_show:
+            plt.show()
+
+
+def test_LSTM_ED_module():
+    import sys
+    sys.path.append(os.path.abspath(os.path.join(__file__, '../../..')))
+    # import src.train_WIP
+    import src.data_utils.DataHandlerLSTM
+    import src.data_utils.plot_utils
+    import src.config.config
+    import matplotlib.pyplot as plt
+    import src.data_utils.Performance
+    # import pickle as pkl
+
+    args = src.config.config.parse_args()
+
+    with tf.Session() as sess:
+
+        # initiating the LSTM encoder/decoder module
+        lstm_ae_module = load_LSTM_ED_module(experiment_number=args.lstmed_exp_num, sess=sess, testing=True)
+
+        # modifying standard arguments before initiating the DataHandler, since we are doing inference
+        args.truncated_backprop_length = 1
+        args.batch_size = 1
+
+        # initiating the DataHandler
+        data_prep = src.data_utils.DataHandlerLSTM.DataHandlerLSTM(args=args)
+        data_prep.processData()
+
+        # printing arguments and descriptions for the user
+        src.data_utils.plot_utils.print_args(args)
+        lstm_ae_module.describe()
+
+        ADE_list = []
+        IDE_list = []
+
+        # The set of trajectory indices that the DataHandler reserves for testing
+        test_traj_indices = range(int(len(data_prep.trajectory_set) * data_prep.train_set), len(data_prep.trajectory_set))
+        trajectory_counter = 0
+        for traj_idx in test_traj_indices:
+            # generating the trajectory velocity batch
+            # batch_vel.shape --> [1, T, n_features]
+            # where:
+            #       - n_features is equal to input_state_dim * (prev_horizon + 1)
+            #       - T id the total sequence length that can be extracted from the trajectory using this format
+            batch_x, batch_vel, batch_pos, batch_goal, batch_grid, other_agents_info, batch_target, batch_end_pos, other_agents_pos, traj = data_prep.getTrajectoryAsBatch(
+                traj_idx,
+                freeze=False)
+
+            # resetting the cells of the module
+            lstm_ae_module.reset_cells(np.ones(args.batch_size))
+
+            # performing prediction, this is done here by iterating over the timesteps T
+            batch_pred = []
+            for timestep in range(batch_vel.shape[1]):
+                # Assemble the dictionary
+                input_dict = lstm_ae_module.feed_test_dic(input_data=batch_vel, step=timestep, state_noise=0.0)
+                timestep_pred = lstm_ae_module.reconstruct(sess=sess, input_dict=input_dict, update_state=True)
+                # timestep_pred.shape --> [1, 1, n_features]
+
+                batch_pred.append(timestep_pred[0])
+            batch_pred = np.stack(batch_pred, axis=1)
+            # batch_pred.shape <--> batch_vel.shape
+
+            perf_scores = src.data_utils.Performance.compute_perf_scores_from_vel_instance(
+                vel_truth=batch_vel[0], vel_pred=batch_pred[0]
+            )
+
+            ADE_list.append(perf_scores["ADE"])
+            IDE_list.append(perf_scores["IDE"])
+
+            trajectory_counter += 1
+
+            # DEBUG PLOTTING FEEL FREE TO ALTER DUMMY TRUTH CONDITION
+            if trajectory_counter < 5 and False:
+                fig, axs = plt.subplots()
+                ax_lim = 10
+                axs.axis("equal")
+                plt.setp(axs, xlim=[-ax_lim, ax_lim], ylim=[-ax_lim, ax_lim])
+                fig.canvas.manager.set_window_title("Reconstruction - Visual")
+                src.data_utils.plot_utils.plot_centered_vel_instance(
+                    ax=axs, vel_instance=batch_vel[0], label="GT", color='blue'
+                )
+                src.data_utils.plot_utils.plot_centered_vel_instance(
+                    ax=axs, vel_instance=batch_pred[0], label="prediction", color='orange'
+                )
+                plt.legend()
+                plt.show()
+
+        save_path = os.path.abspath(f"../trained_models/LSTM_ED_module/{args.lstmed_exp_num}/results")
+        save_file = "performance.csv"
+        full_path = os.path.join(save_path, save_file)
+        assert os.path.exists(save_path)
+
+        overwrite = False       # to overwrite any already existing performance.csv file
+        if not os.path.exists(full_path) or overwrite:
+            with open(full_path, "w") as file:
+                writer = csv.writer(file)
+                writer.writerow(
+                    ["# Test Traj",
+                     "ADE min", "ADE max", "ADE mean",
+                     "IDE min", "IDE max", "IDE mean"]
+                )
+                writer.writerow(
+                    [trajectory_counter,
+                     np.min(ADE_list), np.max(ADE_list), np.mean(ADE_list),
+                     np.min(IDE_list), np.max(IDE_list), np.mean(IDE_list)]
+                )
+
+        # This csv contains all the run results
+        general_save_path = os.path.abspath("../trained_models/LSTM_ED_module")
+        general_save_file = "LSTM_ED_module_performance_summary.csv"
+        full_general_path = os.path.join(general_save_path, general_save_file)
+        assert os.path.exists(general_save_path)
+
+        if not os.path.exists(full_general_path):
+            with open(full_general_path, "w") as file:
+                writer = csv.writer(file)
+                writer.writerow(
+                    ["Experiment Number", "# Test Traj",
+                     "ADE min", "ADE max", "ADE mean",
+                     "IDE min", "IDE max", "IDE mean"]
+                )
+        with open(full_general_path, "a") as file:
+            writer = csv.writer(file)
+            writer.writerow(
+                [args.lstmed_exp_num ,trajectory_counter,
+                 np.min(ADE_list), np.max(ADE_list), np.mean(ADE_list),
+                 np.min(IDE_list), np.max(IDE_list), np.mean(IDE_list)]
+            )
+
+        # printing performance scores. Bear in mind here that min, max and mean are taken over the set of test
+        # trajectories. Ie, min will refer to the ADE score of the trajectory for which the prediction with the
+        # smallest ADE score was made. This is different from computing the commonly understood value minADE,
+        # which corresponds to the minimal ADE score obtained for a trajectory, using a number of predictions.
+        print(colorama.Fore.BLUE)
+        print(f"Over a set of {trajectory_counter} trajectories:")
+        print(f"Average Displacement Error   - "
+              f"min: {np.min(ADE_list):.4f}\t| "
+              f"max: {np.max(ADE_list):.4f}\t| "
+              f"mean: {np.mean(ADE_list):.4f}")
+        print(f"Initial Displacement Error   - "
+              f"min: {np.min(IDE_list):.4f}\t| "
+              f"max: {np.max(IDE_list):.4f}\t| "
+              f"mean: {np.mean(IDE_list):.4f}")
+        print(colorama.Style.RESET_ALL)
+
 
 def work_with_toy_data():
     """
@@ -733,7 +918,8 @@ def work_with_toy_data():
     for i in tqdm(range(3000)):
         module.run_update_step(sess=session, input_data=X)
 
-    yhat = module.reconstruct(sess=session, input_data=X)
+    input_dict = module.feed_dic(input_data=X)
+    yhat = module.reconstruct(sess=session, input_dict=input_dict)
 
     print()
     print('---Predicted---')
@@ -743,5 +929,8 @@ def work_with_toy_data():
 
 
 if __name__ == '__main__':
+    # IMPORTANT: please run this script from within the src/ folder (ie, by calling `python3 models/LSTM_ED_module.py`)
+
     # work_with_toy_data()
-    train_LSTM_ED_module()
+    # train_LSTM_ED_module()
+    test_LSTM_ED_module()

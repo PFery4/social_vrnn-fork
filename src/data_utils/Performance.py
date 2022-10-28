@@ -8,6 +8,7 @@ if sys.version_info[0] < 3:
     import Support as sup
 else:
     import src.data_utils.Support as sup
+import src.data_utils.plot_utils
 
 
 def compute_trajectory_prediction_mse(args, ground_truth, predictions):
@@ -407,3 +408,31 @@ def compute_nll2(args, ground_truth, predictions):
             cnt += 1
         avg_list.append(avg_nll)
     return avg_nll, avg_list
+
+
+def compute_perf_scores_from_vel_instance(vel_truth, vel_pred):
+    """
+    This function takes two velocity instances:
+        vel_truth is an instance extracted from a velocity batch batch_vel (for example, batch_vel[0])
+        vel_pred is a corresponding prediction of that velocity instance (with therefore the same shape as vel_truth)
+
+    Those velocity signals are then each integrated to construct their corresponding trajectory.
+    The ADE and IDE (Initial Displacement Error, since we are looking into the past) between those two trajectories are then computed.
+    """
+
+    # converting to trajectories
+    truth_traj = src.data_utils.plot_utils.centered_batch_instance_from_vel(vel_truth)
+    pred_traj = src.data_utils.plot_utils.centered_batch_instance_from_vel(vel_pred)
+
+    x_truth = truth_traj[::2]
+    y_truth = truth_traj[1::2]
+    x_pred = pred_traj[::2]
+    y_pred = pred_traj[1::2]
+
+    error_dist = np.sqrt((x_truth - x_pred)**2 + (y_truth-y_pred)**2)
+
+    out_dict = {
+        "IDE": error_dist[-1],
+        "ADE": np.mean(error_dist)
+    }
+    return out_dict
