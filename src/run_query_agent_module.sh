@@ -37,3 +37,11 @@
 # python3 models/LSTM_ED_module.py --lstmed_exp_num 113 --truncated_backprop_length 3 --prev_horizon 8 --prediction_horizon 12 --total_training_steps 20000 --lstmed_reverse_time_prediction true --scenario "real_world/zara_01";
 # python3 models/LSTM_ED_module.py --lstmed_exp_num 114 --truncated_backprop_length 3 --prev_horizon 8 --prediction_horizon 12 --total_training_steps 20000 --lstmed_reverse_time_prediction true --scenario "real_world/zara_02";
 
+python3 models/LSTM_ED_module.py --lstmed_exp_num 120 --total_training_steps 20000 --scenario "real_world/ewap_dataset/seq_hotel" --lstmed_consistent_time_signal false;
+python3 models/LSTM_ED_module.py --lstmed_exp_num 121 --total_training_steps 20000 --scenario "real_world/ewap_dataset/seq_eth" --lstmed_consistent_time_signal false;
+python3 models/LSTM_ED_module.py --lstmed_exp_num 122 --total_training_steps 20000 --scenario "real_world/st" --lstmed_consistent_time_signal false;
+python3 models/LSTM_ED_module.py --lstmed_exp_num 123 --total_training_steps 20000 --scenario "real_world/zara_01" --lstmed_consistent_time_signal false;
+python3 models/LSTM_ED_module.py --lstmed_exp_num 124 --total_training_steps 20000 --scenario "real_world/zara_02" --lstmed_consistent_time_signal false;
+
+
+
