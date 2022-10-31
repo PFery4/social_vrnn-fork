@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-tf.set_random_seed(314159265)
+# tf.set_random_seed(314159265)
 
 def linear(input_, output_size,id=0, scope=None, stddev=0.02, bias_start=0.0, with_w=False):
     shape = input_.get_shape().as_list()
