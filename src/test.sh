@@ -111,22 +111,34 @@
 #python3 test.py --exp_num 10403 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/zara_01" --record true;
 #python3 test.py --exp_num 10404 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/zara_02" --record true;
 
-python3 test.py --exp_num 110101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
-python3 test.py --exp_num 210101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
-python3 test.py --exp_num 310101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+#python3 test.py --exp_num 110101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+#python3 test.py --exp_num 210101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+#python3 test.py --exp_num 310101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
 
-python3 test.py --exp_num 110101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
-python3 test.py --exp_num 210101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
-python3 test.py --exp_num 310101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+#python3 test.py --exp_num 110101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+#python3 test.py --exp_num 210101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+#python3 test.py --exp_num 310101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
 
-python3 test.py --exp_num 1010101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
-python3 test.py --exp_num 2010101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
-python3 test.py --exp_num 3010101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
-python3 test.py --exp_num 4010101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
-python3 test.py --exp_num 5010101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+#python3 test.py --exp_num 1010101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+#python3 test.py --exp_num 2010101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+#python3 test.py --exp_num 3010101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+#python3 test.py --exp_num 4010101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+#python3 test.py --exp_num 5010101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
 
-python3 test.py --exp_num 1010101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
-python3 test.py --exp_num 2010101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
-python3 test.py --exp_num 3010101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
-python3 test.py --exp_num 4010101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
-python3 test.py --exp_num 5010101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+#python3 test.py --exp_num 1010101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+#python3 test.py --exp_num 2010101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+#python3 test.py --exp_num 3010101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+#python3 test.py --exp_num 4010101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+#python3 test.py --exp_num 5010101 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+
+
+# python3 test.py --exp_num 10101003 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+# python3 test.py --exp_num 10101005 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+# python3 test.py --exp_num 10101008 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+
+
+# python3 test.py --exp_num 10101003 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+# python3 test.py --exp_num 10101005 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+# python3 test.py --exp_num 10101008 --model_name SocialVRNN_LSTM_ED --num_test_sequences 10 --scenario "real_world/ewap_dataset/seq_eth" --record true;
+
+

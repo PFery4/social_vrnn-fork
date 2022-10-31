@@ -10,6 +10,7 @@ import src.data_utils.utils
 
 here = os.path.abspath(__file__)
 
+
 def single_vs_multi_datasets():
     datasets = ["Hotel", "ETH", "Univ", "ZARA01", "ZARA02"]
     target_ADEs = [0.35, 0.39, 0.53, 0.41, 0.51]
@@ -54,6 +55,7 @@ def single_vs_multi_datasets():
 
     plt.show()
 
+
 def compare_orig_vs_own_implementation():
     datasets = ["Hotel", "ETH", "Univ", "ZARA01", "ZARA02"]
     target_ADEs = [0.35, 0.39, 0.53, 0.41, 0.51]
@@ -82,6 +84,7 @@ def compare_orig_vs_own_implementation():
         plt.legend()
 
     plt.show()
+
 
 def ablation_study():
     plt.rcParams['font.family'] = 'monospace'
@@ -272,15 +275,15 @@ if __name__ == '__main__':
     common_args = ["scenario"]
     compare_args = ["exp_num", "warm_start_convnet", "freeze_grid_cnn", "warm_start_query_agent_module", "freeze_query_agent_module"]
     experiments = [
-        [100, 200, 300, 400],
+        # [100, 200, 300, 400],
         [10100, 10200, 10300, 10400],
-        [101, 201, 301, 401],
+        # [101, 201, 301, 401],
         [10101, 10201, 10301, 10401],
-        [102, 202, 302, 402],
+        # [102, 202, 302, 402],
         [10102, 10202, 10302, 10402],
-        [103, 203, 303, 403],
+        # [103, 203, 303, 403],
         [10103, 10203, 10303, 10403],
-        [104, 204, 304, 404],
+        # [104, 204, 304, 404],
         [10104, 10204, 10304, 10404]
     ]
     for runs in experiments:
@@ -292,54 +295,53 @@ if __name__ == '__main__':
         )
     plt.show()
 
+    # common_args = ["scenario"]
+    # compare_args = ["exp_num"]# "warm_start_convnet", "freeze_grid_cnn", "warm_start_query_agent_module", "freeze_query_agent_module", "rotated_grid", "normalize_data", "diversity_update", "correction_div_loss_in_total_loss"]
+    # experiments = [[10101, 110101, 210101, 310101]]
+    # for runs in experiments:
+    #     compare_ADE_FDE_results(
+    #         model_name=model_name,
+    #         runs=runs,
+    #         common_args=common_args,
+    #         compare_args=compare_args
+    #     )
+    # plt.show()
+    #
+    # common_args = ["scenario"]
+    # compare_args = ["exp_num", "rotated_grid", "normalize_data", "diversity_update", "correction_div_loss_in_total_loss"]
+    # experiments = [[10101, 1010101, 2010101, 3010101, 4010101]]
+    #
+    # for runs in experiments:
+    #     compare_ADE_FDE_results(
+    #         model_name=model_name,
+    #         runs=runs,
+    #         common_args=common_args,
+    #         compare_args=compare_args
+    #     )
+    # plt.show()
+    #
+    # common_args = ["scenario"]
+    # compare_args = ["exp_num", "diversity_update", "correction_div_loss_in_total_loss"]
+    # experiments = [[10101, 3010101, 4010101]]
+    #
+    # for runs in experiments:
+    #     compare_ADE_FDE_results(
+    #         model_name=model_name,
+    #         runs=runs,
+    #         common_args=common_args,
+    #         compare_args=compare_args
+    #     )
+    # plt.show()
+    #
+    # common_args = ["scenario"]
+    # compare_args = ["exp_num", "truncated_backprop_length"]
+    # experiments = [[10101, 10101003, 10101005, 10101008]]
+    # for runs in experiments:
+    #     compare_ADE_FDE_results(
+    #         model_name=model_name,
+    #         runs=runs,
+    #         common_args=common_args,
+    #         compare_args=compare_args
+    #     )
+    # plt.show()
 
-
-    common_args = ["scenario"]
-    compare_args = ["exp_num"]# "warm_start_convnet", "freeze_grid_cnn", "warm_start_query_agent_module", "freeze_query_agent_module", "rotated_grid", "normalize_data", "diversity_update", "correction_div_loss_in_total_loss"]
-    experiments = [[10101, 110101, 210101, 310101]]
-    for runs in experiments:
-        compare_ADE_FDE_results(
-            model_name=model_name,
-            runs=runs,
-            common_args=common_args,
-            compare_args=compare_args
-        )
-    plt.show()
-
-    common_args = ["scenario"]
-    compare_args = ["exp_num", "rotated_grid", "normalize_data", "diversity_update", "correction_div_loss_in_total_loss"]
-    experiments = [[10101, 1010101, 2010101, 3010101, 4010101]]
-
-    for runs in experiments:
-        compare_ADE_FDE_results(
-            model_name=model_name,
-            runs=runs,
-            common_args=common_args,
-            compare_args=compare_args
-        )
-    plt.show()
-
-    common_args = ["scenario"]
-    compare_args = ["exp_num", "diversity_update", "correction_div_loss_in_total_loss"]
-    experiments = [[10101, 3010101, 4010101]]
-
-    for runs in experiments:
-        compare_ADE_FDE_results(
-            model_name=model_name,
-            runs=runs,
-            common_args=common_args,
-            compare_args=compare_args
-        )
-    plt.show()
-
-    common_args = ["scenario"]
-    compare_args = ["exp_num", "truncated_backprop_length"]
-    experiments = [[10101, 10101003, 10101005, 10101008]]
-    for runs in experiments:
-        compare_ADE_FDE_results(
-            model_name=model_name,
-            runs=runs,
-            common_args=common_args,
-            compare_args=compare_args
-        )
-    plt.show()
