@@ -26,20 +26,20 @@ def parse_args():
     data_path = '../data/'
     # scenario = 'real_world/ewap_dataset/seq_hotel'
     # scenario = 'real_world/ewap_dataset/seq_eth'
-    # scenario = 'real_world/st'
+    scenario = 'real_world/st'      # this one as the default, since it is the richest in data
     # scenario = 'real_world/zara_01'
-    scenario = 'real_world/zara_02'
+    # scenario = 'real_world/zara_02'
     exp_num = 0
 
     # Hyperparameters
-    n_epochs = 2
+    n_epochs = 2        # does not seem to have a purpose
     batch_size = 16
     regularization_weight = 0.0001
 
     # Time parameters
-    truncated_backprop_length = 10
-    prediction_horizon = 10
-    prev_horizon = 0
+    truncated_backprop_length = 3
+    prediction_horizon = 12
+    prev_horizon = 8
 
     # Input / Output dimension parameters
     input_dim = 4  # [x, y, vx, vy]
@@ -90,8 +90,6 @@ def parse_args():
     warm_start_query_agent_module = False
     pretrained_query_agent_module_path = "../trained_models/LSTM_ED_module/0"
 
-    # Occupancy grid CNN
-    freeze_grid_cnn = True
 
     # Training process parameters
     print_freq = 200
@@ -119,6 +117,7 @@ def parse_args():
     diversity_update = False
     predict_positions = False
     warm_start_convnet = True
+    freeze_grid_cnn = True
     debug_plotting = False
 
     # Dataset division
