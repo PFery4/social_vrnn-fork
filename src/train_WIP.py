@@ -130,6 +130,10 @@ if __name__ == '__main__':
             else:
                 batch = res.get(timeout=5)
 
+            # # WIPCODE
+            # print(f"batch_ped_grid.shape: {batch_ped_grid.shape}")
+            # print(f"batch_ped_grid[0, 0]:\n{batch_ped_grid[0, 0]}")
+
             # Create dictionary to feed into the model
             dict = {"batch_x": batch_x,
                     "batch_vel": batch_vel,
