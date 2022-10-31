@@ -977,7 +977,7 @@ if __name__ == '__main__':
     # IMPORTANT: please run this script from within the src/ folder (ie, by calling `python3 models/LSTM_ED_module.py`)
 
     # work_with_toy_data()
-    # train_LSTM_ED_module()
+    train_LSTM_ED_module()
     # test_LSTM_ED_module()
 
-    pass
+    # pass
