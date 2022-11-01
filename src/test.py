@@ -148,10 +148,11 @@ if __name__ == '__main__':
     with tf.Session(config=config) as sess:
         model.warmstart_model(args, sess)
 
+        iter_list = range(int(len(data_prep.trajectory_set) * data_prep.train_set), len(data_prep.trajectory_set))
+
         if test_args.record:
-            iter_list = range(np.minimum(test_args.num_test_sequences, len(data_prep.trajectory_set) - 1))
-        else:
-            iter_list = range(int(len(data_prep.trajectory_set) * data_prep.train_set), len(data_prep.trajectory_set))
+            iter_list = iter_list[:test_args.num_test_sequences]        # this way we are sampling trajectories from the test set
+            # iter_list = range(np.minimum(test_args.num_test_sequences, len(data_prep.trajectory_set) - 1))
 
         for traj_id in iter_list:
             predictions = []
