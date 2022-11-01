@@ -761,6 +761,8 @@ def test_LSTM_ED_module():
 
     args = src.config.config.parse_args()
 
+    src.data_utils.plot_utils.print_args(args)
+
     with tf.Session() as sess:
 
         # initiating the LSTM encoder/decoder module
@@ -871,7 +873,7 @@ def test_LSTM_ED_module():
         with open(full_general_path, "a") as file:
             writer = csv.writer(file)
             writer.writerow(
-                [args.lstmed_exp_num ,trajectory_counter,
+                [args.lstmed_exp_num, trajectory_counter,
                  np.min(ADE_list), np.max(ADE_list), np.mean(ADE_list),
                  np.min(IDE_list), np.max(IDE_list), np.mean(IDE_list)]
             )
@@ -891,6 +893,99 @@ def test_LSTM_ED_module():
               f"max: {np.max(IDE_list):.4f}\t| "
               f"mean: {np.mean(IDE_list):.4f}")
         print(colorama.Style.RESET_ALL)
+
+
+def show_reconstruction_examples():
+    """
+    takes a pretrained LSTM_ED_module, and provides visual examples of reconstructions made by the model.
+    """
+    import sys
+    sys.path.append(os.path.abspath(os.path.join(__file__, '../../..')))
+    import src.data_utils.DataHandlerLSTM
+    import src.data_utils.plot_utils
+    import src.config.config
+    import matplotlib.pyplot as plt
+    import src.data_utils.Performance
+
+    number_traj_examples = 9
+    n_cols = 3
+    args = src.config.config.parse_args()
+
+    src.data_utils.plot_utils.print_args(args)
+
+    with tf.Session() as sess:
+
+        # initiating the LSTM encoder/decoder module
+        lstm_ae_module = load_LSTM_ED_module(experiment_number=args.lstmed_exp_num, sess=sess, testing=True)
+
+        # modifying standard arguments before initiating the DataHandler, since we are doing inference
+        args.truncated_backprop_length = 1
+        args.batch_size = 1
+
+        # initiating the DataHandler
+        data_prep = src.data_utils.DataHandlerLSTM.DataHandlerLSTM(args=args)
+        data_prep.processData()
+
+        # printing arguments and descriptions for the user
+        src.data_utils.plot_utils.print_args(args)
+        lstm_ae_module.describe()
+
+        # The set of trajectory indices that the DataHandler reserves for testing
+        test_traj_indices = range(int(len(data_prep.trajectory_set) * data_prep.train_set),
+                                  len(data_prep.trajectory_set))
+        if len(test_traj_indices) < number_traj_examples:
+            print(f"Not enough trajectories: available/requested <--> {len(test_traj_indices)}/{number_traj_examples}\n"
+                  f"Using all available trajectories instead")
+        test_traj_indices = test_traj_indices[:number_traj_examples]
+        number_traj_examples = len(test_traj_indices)
+
+        n_rows = number_traj_examples // n_cols + int(bool(number_traj_examples % n_cols))
+
+        fig, axs = plt.subplots(n_rows, n_cols, sharex=True, sharey=True)
+        ax_lim = 10
+        # axs.axis("equal")
+        # plt.setp(axs, xlim=[-ax_lim, ax_lim], ylim=[-ax_lim, ax_lim])
+        # plt.setp(axs, aspect="equal")
+        fig.canvas.manager.set_window_title("Reconstruction - Visual")
+
+        for count, traj_idx in enumerate(test_traj_indices):
+            # generating the trajectory velocity batch
+            # batch_vel.shape --> [1, T, n_features]
+            # where:
+            #       - n_features is equal to input_state_dim * (prev_horizon + 1)
+            #       - T id the total sequence length that can be extracted from the trajectory using this format
+            batch_x, batch_vel, batch_pos, batch_goal, batch_grid, other_agents_info, batch_target, batch_end_pos, other_agents_pos, traj = data_prep.getTrajectoryAsBatch(
+                traj_idx,
+                freeze=False)
+
+            # resetting the cells of the module
+            lstm_ae_module.reset_cells(np.ones(args.batch_size))
+
+            # performing prediction, this is done here by iterating over the timesteps T
+            batch_pred = []
+            for timestep in range(batch_vel.shape[1]):
+                # Assemble the dictionary
+                input_dict = lstm_ae_module.feed_test_dic(input_data=batch_vel, step=timestep, state_noise=0.0)
+                timestep_pred = lstm_ae_module.reconstruct(sess=sess, input_dict=input_dict, update_state=True)
+                # timestep_pred.shape --> [1, 1, n_features]
+
+                batch_pred.append(timestep_pred[0])
+            batch_pred = np.stack(batch_pred, axis=1)
+            # batch_pred.shape <--> batch_vel.shape
+
+            ax = axs[count % n_rows, count // n_rows]
+            ax.set(xlim=[-ax_lim, ax_lim], ylim=[-ax_lim, ax_lim])
+            ax.set_aspect("equal", "box-forced")
+
+            src.data_utils.plot_utils.plot_centered_vel_instance(
+                ax=ax, vel_instance=batch_vel[0], label="GT", color='blue'
+            )
+            src.data_utils.plot_utils.plot_centered_vel_instance(
+                ax=ax, vel_instance=batch_pred[0], label="prediction", color='orange'
+            )
+
+        ax.legend()
+        plt.show()
 
 
 def work_with_toy_data():
@@ -976,8 +1071,20 @@ def work_with_toy_data():
 if __name__ == '__main__':
     # IMPORTANT: please run this script from within the src/ folder (ie, by calling `python3 models/LSTM_ED_module.py`)
 
+    # the script can be run by specifying the name of the experiment number, plus any additional desired parameter values
+    # you can have a look at the available parameters in the config file.
+    # for example:
+    # python3 models/LSTM_ED_module.py --lstmed_exp_num 314159265 --total_training_steps 5000 --scenario "real_world/st" --lstmed_consistent_time_signal false --prev_horizon 6
+
+    print("Make sure to uncomment desired behaviour from the following list of choices\n"
+          "(You can do this directly from the LSTM_ED_module.py file):\n"
+          "work_with_toy_data()\n"
+          "train_LSTM_ED_module()\n"
+          "test_LSTM_ED_module()\n"
+          "show_reconstruction_examples()")
     # work_with_toy_data()
-    train_LSTM_ED_module()
+    # train_LSTM_ED_module()
     # test_LSTM_ED_module()
+    show_reconstruction_examples()
 
     # pass
