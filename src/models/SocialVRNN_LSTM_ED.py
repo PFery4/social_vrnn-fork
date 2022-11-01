@@ -447,7 +447,8 @@ class NetworkModel:
         }
 
         feed_dictionary.update(
-            self.query_agent_module.feed_test_dic(input_data=np.expand_dims(kwargs["batch_vel"][:, step, :], axis=1),
+            self.query_agent_module.feed_test_dic(input_data=kwargs["batch_vel"],
+                                                  step=step,
                                                   state_noise=kwargs["state_noise"])
         )
         return feed_dictionary
