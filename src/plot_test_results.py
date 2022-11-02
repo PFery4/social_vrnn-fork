@@ -163,8 +163,8 @@ def compare_ADE_FDE_results(model_name, runs, common_args, compare_args, show=Fa
 
     base_path = os.path.abspath(os.path.join(os.path.dirname(here), f"../trained_models/{model_name}"))
 
-    col1_ratio = 0.25
-    row1_ratio = 0.8
+    col1_ratio = 0.20
+    row1_ratio = 0.7
 
     width_ratios = [col1_ratio]
     width_ratios.extend([(1-col1_ratio)/len(runs)] * len(runs))
@@ -207,6 +207,8 @@ def compare_ADE_FDE_results(model_name, runs, common_args, compare_args, show=Fa
         common_arg_values = []
         for arg in common_args:
             value = param_dict.get(arg, "N/A")
+            if arg == "scenario":
+                value = value.split("/")[-1]
             common_arg_values.append(value)
         common_args_across.append(common_arg_values)
 
@@ -271,29 +273,29 @@ if __name__ == '__main__':
     # ablation_study()
     # plt.show()
 
-    model_name = "SocialVRNN_LSTM_ED"
-    common_args = ["scenario"]
-    compare_args = ["exp_num", "warm_start_convnet", "freeze_grid_cnn", "warm_start_query_agent_module", "freeze_query_agent_module"]
-    experiments = [
-        # [100, 200, 300, 400],
-        [10100, 10200, 10300, 10400],
-        # [101, 201, 301, 401],
-        [10101, 10201, 10301, 10401],
-        # [102, 202, 302, 402],
-        [10102, 10202, 10302, 10402],
-        # [103, 203, 303, 403],
-        [10103, 10203, 10303, 10403],
-        # [104, 204, 304, 404],
-        [10104, 10204, 10304, 10404]
-    ]
-    for runs in experiments:
-        compare_ADE_FDE_results(
-            model_name=model_name,
-            runs=runs,
-            common_args=common_args,
-            compare_args=compare_args
-        )
-    plt.show()
+    # model_name = "SocialVRNN_LSTM_ED"
+    # common_args = ["scenario"]
+    # compare_args = ["exp_num", "warm_start_convnet", "freeze_grid_cnn", "warm_start_query_agent_module", "freeze_query_agent_module"]
+    # experiments = [
+    #     # [100, 200, 300, 400],
+    #     [10100, 10200, 10300, 10400],
+    #     # [101, 201, 301, 401],
+    #     [10101, 10201, 10301, 10401],
+    #     # [102, 202, 302, 402],
+    #     [10102, 10202, 10302, 10402],
+    #     # [103, 203, 303, 403],
+    #     [10103, 10203, 10303, 10403],
+    #     # [104, 204, 304, 404],
+    #     [10104, 10204, 10304, 10404]
+    # ]
+    # for runs in experiments:
+    #     compare_ADE_FDE_results(
+    #         model_name=model_name,
+    #         runs=runs,
+    #         common_args=common_args,
+    #         compare_args=compare_args
+    #     )
+    # plt.show()
 
     # common_args = ["scenario"]
     # compare_args = ["exp_num"]# "warm_start_convnet", "freeze_grid_cnn", "warm_start_query_agent_module", "freeze_query_agent_module", "rotated_grid", "normalize_data", "diversity_update", "correction_div_loss_in_total_loss"]
@@ -345,3 +347,60 @@ if __name__ == '__main__':
     #     )
     # plt.show()
 
+
+    # PROPER RERUNS
+    common_args = ["scenario"]
+    compare_args = [
+        "exp_num",
+        "warm_start_convnet", "freeze_grid_cnn",
+        "warm_start_query_agent_module", "freeze_query_agent_module"
+    ]
+
+    # "old": inconsistent time signal across truncations
+    # "new": consistent time signal across truncations
+    experiments = [
+        # [80000000000, 80000000010, 80000000020, 80000000030],  # "old" hotel
+        # [80000000001, 80000000011, 80000000021, 80000000031],  # "old" eth
+        # [80000000002, 80000000012, 80000000022, 80000000032],  # "old" st
+        # [80000000003, 80000000013, 80000000023, 80000000033],  # "old" zara1
+        # [80000000004, 80000000014, 80000000024, 80000000034],  # "old" zara2
+        # [80000000100, 80000000110, 80000000120, 80000000130],  # "new" hotel
+        # [80000000101, 80000000111, 80000000121, 80000000131],  # "new" eth
+        # [80000000102, 80000000112, 80000000122, 80000000132],  # "new" st
+        # [80000000103, 80000000113, 80000000123, 80000000133],  # "new" zara1
+        # [80000000104, 80000000114, 80000000124, 80000000134],  # "new" zara2
+        [80000000000, 80000000010, 80000000020, 80000000030, 80000000100, 80000000110, 80000000120, 80000000130],  # "old vs new" hotel
+        [80000000001, 80000000011, 80000000021, 80000000031, 80000000101, 80000000111, 80000000121, 80000000131],  # "old vs new" eth
+        [80000000002, 80000000012, 80000000022, 80000000032, 80000000102, 80000000112, 80000000122, 80000000132],  # "old vs new" st
+        [80000000003, 80000000013, 80000000023, 80000000033, 80000000103, 80000000113, 80000000123, 80000000133],  # "old vs new" zara1
+        [80000000004, 80000000014, 80000000024, 80000000034, 80000000104, 80000000114, 80000000124, 80000000134],  # "old vs new" zara2
+        [80000000102, 80000001102, 80000002102, 80000003102]   # duplicate runs
+    ]
+    for runs in experiments:
+        compare_ADE_FDE_results(
+            model_name="SocialVRNN_LSTM_ED",
+            runs=runs,
+            common_args=common_args,
+            compare_args=compare_args
+        )
+
+    common_args = ["scenario"]
+    compare_args = [
+        "exp_num",
+        "warm_start_convnet", "freeze_grid_cnn",
+        "warm_start_query_agent_module", "freeze_query_agent_module",
+        "rotated_grid", "normalize_data", "diversity_update", "correction_div_loss_in_total_loss"
+    ]
+
+    experiments = [
+        [80000000102, 80000010102, 80000020102, 80000030102, 80000040102, 80000050102],  # Special Flags
+        [80000000102, 80000010102, 80000020102, 80000030102, 80000040102]  # Special Flags
+    ]
+    for runs in experiments:
+        compare_ADE_FDE_results(
+            model_name="SocialVRNN_LSTM_ED",
+            runs=runs,
+            common_args=common_args,
+            compare_args=compare_args
+        )
+    plt.show()

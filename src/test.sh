@@ -143,54 +143,134 @@
 
 
 # proper reruns
-python3 test.py --exp_num 80000000100 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
-python3 test.py --exp_num 80000000101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
-python3 test.py --exp_num 80000000102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
-python3 test.py --exp_num 80000000103 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
-python3 test.py --exp_num 80000000104 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
+# "old"
+# python3 test.py --exp_num 80000000000 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
+# python3 test.py --exp_num 80000000001 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+# python3 test.py --exp_num 80000000002 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+# python3 test.py --exp_num 80000000003 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
+# python3 test.py --exp_num 80000000004 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
 
-python3 test.py --exp_num 80000000110 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
-python3 test.py --exp_num 80000000111 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
-python3 test.py --exp_num 80000000112 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
-python3 test.py --exp_num 80000000113 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
-python3 test.py --exp_num 80000000114 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
+# python3 test.py --exp_num 80000000010 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
+# python3 test.py --exp_num 80000000011 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+# python3 test.py --exp_num 80000000012 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+# python3 test.py --exp_num 80000000013 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
+# python3 test.py --exp_num 80000000014 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
 
-python3 test.py --exp_num 80000000120 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
-python3 test.py --exp_num 80000000121 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
-python3 test.py --exp_num 80000000122 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
-python3 test.py --exp_num 80000000123 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
-python3 test.py --exp_num 80000000124 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
+# python3 test.py --exp_num 80000000020 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
+# python3 test.py --exp_num 80000000021 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+# python3 test.py --exp_num 80000000022 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+# python3 test.py --exp_num 80000000023 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
+# python3 test.py --exp_num 80000000024 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
 
-python3 test.py --exp_num 80000000130 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
-python3 test.py --exp_num 80000000131 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
-python3 test.py --exp_num 80000000132 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
-python3 test.py --exp_num 80000000133 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
-python3 test.py --exp_num 80000000134 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
+# python3 test.py --exp_num 80000000030 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
+# python3 test.py --exp_num 80000000031 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+# python3 test.py --exp_num 80000000032 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+# python3 test.py --exp_num 80000000033 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
+# python3 test.py --exp_num 80000000034 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
 
 
 
-python3 test.py --exp_num 80000000100 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000103 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000104 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000000 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000001 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000002 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000003 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000004 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
 
-python3 test.py --exp_num 80000000110 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000111 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000112 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000113 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000114 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000010 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000011 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000012 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000013 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000014 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
 
-python3 test.py --exp_num 80000000120 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000121 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000122 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000123 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000124 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000020 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000021 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000022 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000023 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000024 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
 
-python3 test.py --exp_num 80000000130 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000131 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000132 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000133 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
-python3 test.py --exp_num 80000000134 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000030 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000031 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000032 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000033 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000034 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
+
+
+
+
+
+# "new"
+# python3 test.py --exp_num 80000000100 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
+# python3 test.py --exp_num 80000000101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+# python3 test.py --exp_num 80000000102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+# python3 test.py --exp_num 80000000103 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
+# python3 test.py --exp_num 80000000104 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
+
+# python3 test.py --exp_num 80000000110 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
+# python3 test.py --exp_num 80000000111 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+# python3 test.py --exp_num 80000000112 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+# python3 test.py --exp_num 80000000113 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
+# python3 test.py --exp_num 80000000114 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
+
+# python3 test.py --exp_num 80000000120 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
+# python3 test.py --exp_num 80000000121 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+# python3 test.py --exp_num 80000000122 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+# python3 test.py --exp_num 80000000123 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
+# python3 test.py --exp_num 80000000124 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
+
+# python3 test.py --exp_num 80000000130 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record false;
+# python3 test.py --exp_num 80000000131 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record false;
+# python3 test.py --exp_num 80000000132 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+# python3 test.py --exp_num 80000000133 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record false;
+# python3 test.py --exp_num 80000000134 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record false;
+
+
+
+# python3 test.py --exp_num 80000000100 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000101 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000103 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000104 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
+
+# python3 test.py --exp_num 80000000110 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000111 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000112 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000113 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000114 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
+
+# python3 test.py --exp_num 80000000120 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000121 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000122 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000123 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000124 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
+
+# python3 test.py --exp_num 80000000130 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_hotel" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000131 --model_name SocialVRNN_LSTM_ED --scenario "real_world/ewap_dataset/seq_eth" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000132 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000133 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_01" --record true --num_test_sequences 10;
+# python3 test.py --exp_num 80000000134 --model_name SocialVRNN_LSTM_ED --scenario "real_world/zara_02" --record true --num_test_sequences 10;
+
+
+# Special flags and duplicate runs
+python3 test.py --exp_num 80000010102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+python3 test.py --exp_num 80000020102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+python3 test.py --exp_num 80000030102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+python3 test.py --exp_num 80000040102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+python3 test.py --exp_num 80000050102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+
+python3 test.py --exp_num 80000001102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+python3 test.py --exp_num 80000002102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+python3 test.py --exp_num 80000003102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record false;
+
+
+
+python3 test.py --exp_num 80000010102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+python3 test.py --exp_num 80000020102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+python3 test.py --exp_num 80000030102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+python3 test.py --exp_num 80000040102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+python3 test.py --exp_num 80000050102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+
+python3 test.py --exp_num 80000001102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+python3 test.py --exp_num 80000002102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
+python3 test.py --exp_num 80000003102 --model_name SocialVRNN_LSTM_ED --scenario "real_world/st" --record true --num_test_sequences 10;
 
 
