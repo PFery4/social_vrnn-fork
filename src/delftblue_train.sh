@@ -3,7 +3,7 @@
 #SBATCH --job-name="proper_defaults_reruns_pt3"
 #SBATCH --partition=compute
 #SBATCH --account=Education-3mE-MSc-RO
-#SBATCH --time=24:00:00
+#SBATCH --time=05:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=8GB
@@ -122,5 +122,26 @@ conda activate social_vrnn
 # srun python3 train_WIP.py --exp_num 80000030102 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet true --freeze_grid_cnn true --warm_start_query_agent_module false --freeze_query_agent_module false --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" --diversity_update true > output_80000030102.log;
 # srun python3 train_WIP.py --exp_num 80000040102 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet true --freeze_grid_cnn true --warm_start_query_agent_module false --freeze_query_agent_module false --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" --correction_div_loss_in_total_loss true > output_80000040102.log;
 # srun python3 train_WIP.py --exp_num 80000050102 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet true --freeze_grid_cnn true --warm_start_query_agent_module false --freeze_query_agent_module false --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" --diversity_update true --correction_div_loss_in_total_loss true > output_80000050102.log;
+
+# duplicate runs
+# srun python3 train_WIP.py --exp_num 80000001112 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet false --freeze_grid_cnn false --warm_start_query_agent_module true --freeze_query_agent_module true --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" > output_80000001112.log;
+# srun python3 train_WIP.py --exp_num 80000002112 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet false --freeze_grid_cnn false --warm_start_query_agent_module true --freeze_query_agent_module true --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" > output_80000002112.log;
+# srun python3 train_WIP.py --exp_num 80000003112 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet false --freeze_grid_cnn false --warm_start_query_agent_module true --freeze_query_agent_module true --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" > output_80000003112.log;
+
+
+# srun python3 train_WIP.py --exp_num 80000001122 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet true --freeze_grid_cnn true --warm_start_query_agent_module true --freeze_query_agent_module true --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" > output_80000001122.log;
+# srun python3 train_WIP.py --exp_num 80000002122 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet true --freeze_grid_cnn true --warm_start_query_agent_module true --freeze_query_agent_module true --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" > output_80000002122.log;
+# srun python3 train_WIP.py --exp_num 80000003122 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet true --freeze_grid_cnn true --warm_start_query_agent_module true --freeze_query_agent_module true --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" > output_80000003122.log;
+
+
+# srun python3 train_WIP.py --exp_num 80000001132 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet false --freeze_grid_cnn false --warm_start_query_agent_module false --freeze_query_agent_module false --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" > output_80000001132.log;
+# srun python3 train_WIP.py --exp_num 80000002132 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet false --freeze_grid_cnn false --warm_start_query_agent_module false --freeze_query_agent_module false --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" > output_80000002132.log;
+# srun python3 train_WIP.py --exp_num 80000003132 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet false --freeze_grid_cnn false --warm_start_query_agent_module false --freeze_query_agent_module false --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/102" > output_80000003132.log;
+
+# only truncations, no prev_horizon
+srun python3 models/LSTM_ED_module.py --lstmed_exp_num 1002 --truncated_backprop_length 11 --prev_horizon 0 --prediction_horizon 12 --total_training_steps 20000 --scenario "real_world/st" > output_LSTMED_1000.log;
+
+srun python3 train_WIP.py --exp_num 81000000102 --model_name SocialVRNN_LSTM_ED --total_training_steps 20000 --print_freq 100 --warm_start_convnet false --freeze_grid_cnn false --warm_start_query_agent_module true --freeze_query_agent_module true --scenario "real_world/st" --pretrained_query_agent_module_path "../trained_models/LSTM_ED_module/1002" --truncated_backprop_length 11 --prev_horizon 0 --prediction_horizon 12 > output_81000000102.log;
+
 
 
