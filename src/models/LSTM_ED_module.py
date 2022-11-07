@@ -941,12 +941,16 @@ def show_reconstruction_examples():
 
         n_rows = number_traj_examples // n_cols + int(bool(number_traj_examples % n_cols))
 
+        # plt.rcParams["figure.figsize"] = [12, 12]
         fig, axs = plt.subplots(n_rows, n_cols, sharex=True, sharey=True)
         ax_lim = 10
         # axs.axis("equal")
         # plt.setp(axs, xlim=[-ax_lim, ax_lim], ylim=[-ax_lim, ax_lim])
         # plt.setp(axs, aspect="equal")
-        fig.canvas.manager.set_window_title("Reconstruction - Visual")
+        fig.canvas.manager.set_window_title(f"Reconstruction - Visual - {args.scenario} - {args.lstmed_exp_num}")
+
+        title_str = f"Reconstruction - dataset: {args.scenario.split('/')[-1]} - time consistent: {args.lstmed_consistent_time_signal}"
+        plt.suptitle(title_str)
 
         for count, traj_idx in enumerate(test_traj_indices):
             # generating the trajectory velocity batch
