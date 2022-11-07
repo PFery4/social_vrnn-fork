@@ -62,6 +62,12 @@ def parse_args():
                         default=False)
     parser.add_argument('--unit_testing', help='Run Unit Tests.', type=sup.str2bool,
                         default=False)
+
+    parser.add_argument('--remove_idles',
+                        help='Remove idle trajectories from the test set (trajectories are evaluated as idle'
+                             'according to the describe_motion function defined in the plot_utils file)',
+                        type=sup.str2bool, default=False)
+
     args = parser.parse_args()
 
     return args
@@ -162,6 +168,17 @@ if __name__ == '__main__':
             batch_x, batch_vel, batch_pos, batch_goal, batch_grid, other_agents_info, batch_target, batch_end_pos, other_agents_pos, traj = data_prep.getTrajectoryAsBatch(
                 traj_id,
                 freeze=test_args.freeze_other_agents)  # trajectory_set random.randint(0, len(data_prep.dataset) - 1)
+
+            if test_args.remove_idles:
+
+                future_traj = traj.pose_vec[-args.prediction_horizon:]
+                future_vel = traj.vel_vec[-args.prediction_horizon:]
+                centered_pos = centered_traj_pos(future_traj, future_vel, 0)
+
+                isidle = (describe_motion(centered_pose_vec=centered_pos) == 'idle')
+                if isidle:
+                    print("IDLE TRAJECTORY")
+                    continue
 
             trajectories.append(traj)
             x_input_series = np.zeros([0, (args.prev_horizon + 1) * args.input_dim])
