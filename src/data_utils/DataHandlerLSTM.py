@@ -1204,7 +1204,8 @@ class DataHandlerLSTM:
                                int(np.ceil(self.submap_height / self.agent_container.occupancy_grid.resolution))])
         batch_goal = np.zeros([1, sequence_length, 2])
         batch_y = np.zeros([1, sequence_length, self.output_state_dim * self.output_sequence_length])
-        batch_pos = np.zeros([1, sequence_length, self.output_state_dim * self.output_sequence_length])
+        # batch_pos = np.zeros([1, sequence_length, self.output_state_dim * self.output_sequence_length])       # INCORRECT
+        batch_pos = np.zeros([1, sequence_length, self.input_state_dim * (self.prev_horizon + 1)])
         if self.others_info == "relative":
             pedestrian_grid = np.zeros([1, sequence_length, self.pedestrian_vector_dim * self.n_other_agents])
         elif "sequence" in self.others_info:
