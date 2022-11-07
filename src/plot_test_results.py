@@ -190,6 +190,8 @@ def compare_ADE_FDE_results(model_name, runs, common_args, compare_args, show=Fa
     for idx, exp_num in enumerate(runs):
 
         param_path = os.path.join(base_path, str(exp_num), "model_parameters.json")
+        assert os.path.exists(param_path)
+
         with open(param_path, "r") as f:
             param_dict = json.load(f)
 
@@ -244,6 +246,72 @@ def compare_ADE_FDE_results(model_name, runs, common_args, compare_args, show=Fa
     )
     tab1.auto_set_font_size(False)
     tab1.set_fontsize(10)
+
+    if show:
+        plt.show()
+
+
+def compare_lstmed_results(runs, compare_args, show=False):
+    # plt.rcParams['font.family'] = 'monospace'
+
+    base_path = os.path.abspath(os.path.join(os.path.dirname(here), f"../trained_models/LSTM_ED_module"))
+
+    col1_ratio = 0.20
+    row1_ratio = 0.7
+
+    width_ratios = [col1_ratio]
+    width_ratios.extend([(1-col1_ratio)/len(runs)] * len(runs))
+    height_ratios = [row1_ratio, 1-row1_ratio]
+
+    gs = gridspec.GridSpec(nrows=2, ncols=len(runs) + 1, width_ratios=width_ratios, height_ratios=height_ratios)
+
+    fig = plt.figure()
+    fig_ax1 = fig.add_subplot(gs[0, 0])
+    fig_ax1.axis('off')
+
+    fig_ax2 = fig.add_subplot(gs[1, 0])
+    fig_ax2.axis('off')
+
+    variable_names = [['exp_num']]
+    variable_names.extend([[arg] for arg in compare_args])
+    tab2_names = fig_ax2.table(
+        cellText=variable_names,
+        loc="center"
+    )
+    tab2_names.auto_set_font_size(False)
+    tab2_names.set_fontsize(10)
+
+    for idx, exp_num in enumerate(runs):
+
+        param_path = os.path.join(base_path, str(exp_num), "parameters.json")
+
+        assert os.path.exists(param_path)
+
+        with open(param_path, "r") as f:
+            param_dict = json.load(f)
+
+        fig_ax = fig.add_subplot(gs[0, idx + 1], sharey=fig_ax1)
+        src.data_utils.plot_utils.plot_lstmed_runs(ax=fig_ax, exp_num=exp_num)
+
+        if idx != 0:
+            fig_ax.tick_params(labelleft=False)
+
+        compare_arg_values = [exp_num]
+        for arg in compare_args:
+            value = param_dict.get(arg, "N/A")
+            if arg == "scenario":
+                value = value.split("/")[-1]
+            compare_arg_values.append(value)
+
+        fig_tab = fig.add_subplot(gs[1, idx + 1])
+        table_values = [[value] for value in compare_arg_values]
+        table = fig_tab.table(
+            cellText=table_values,
+            loc='center'
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(10)
+        fig_tab.axis("off")
 
     if show:
         plt.show()
@@ -348,12 +416,29 @@ if __name__ == '__main__':
     # plt.show()
 
 
+    # LSTM Encoder Decoder
+    compare_args = ["scenario", "consistent_time_signal"]
+
+    experiments = [
+        [120, 121, 122, 123, 124],  # old
+        [100, 101, 102, 103, 104],  # new
+        [120, 121, 122, 123, 124, 100, 101, 102, 103, 104]  # old vs new
+    ]
+    for runs in experiments:
+        compare_lstmed_results(
+            runs=runs,
+            compare_args=compare_args
+        )
+    plt.show()
+
+
     # PROPER RERUNS
     common_args = ["scenario"]
     compare_args = [
         "exp_num",
         "warm_start_convnet", "freeze_grid_cnn",
-        "warm_start_query_agent_module", "freeze_query_agent_module"
+        "warm_start_query_agent_module", "freeze_query_agent_module",
+        "warmstart_model"
     ]
 
     # "old": inconsistent time signal across truncations
@@ -374,7 +459,10 @@ if __name__ == '__main__':
         [80000000002, 80000000012, 80000000022, 80000000032, 80000000102, 80000000112, 80000000122, 80000000132],  # "old vs new" st
         [80000000003, 80000000013, 80000000023, 80000000033, 80000000103, 80000000113, 80000000123, 80000000133],  # "old vs new" zara1
         [80000000004, 80000000014, 80000000024, 80000000034, 80000000104, 80000000114, 80000000124, 80000000134],  # "old vs new" zara2
-        [80000000102, 80000001102, 80000002102, 80000003102]   # duplicate runs
+        [80000000102, 80000001102, 80000002102, 80000003102],  # duplicate runs
+        [80000000112, 80000001112, 80000002112, 80000003112],  # duplicate runs
+        [80000000122, 80000001122, 80000002122, 80000003122],  # duplicate runs
+        [80000000132, 80000001132, 80000002132, 80000003132]  # duplicate runs
     ]
     for runs in experiments:
         compare_ADE_FDE_results(
