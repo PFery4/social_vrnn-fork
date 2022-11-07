@@ -1491,3 +1491,119 @@ def plot_ADE_FDE_runs(ax, model_name: str, exp_num: int):
         ax.scatter([2], mean_fde_lst[-1], c="c")
         ax.scatter([1], max_mse_lst[-1], c="b", label="Own: max")
         ax.scatter([2], max_fde_lst[-1], c="b")
+
+
+def plot_lstmed_runs(ax, exp_num: int):
+    """
+    reads through the <model_name>_summary.csv file (inside the src folder), looks for experiments performed with model <exp_num>. plots the
+    resulting ADE and FDE errors on ax.
+    """
+    pathname = os.path.abspath(
+        os.path.join(
+            os.path.abspath(__file__),
+            f"../../../trained_models/LSTM_ED_module/LSTM_ED_module_performance_summary.csv"
+        )
+    )
+
+    assert os.path.exists(pathname)
+    with open(pathname, 'r') as file:
+        csvreader = csv.reader(file)
+        rows = list(csvreader)
+        exp_num_colidx = rows[0].index("Experiment Number")
+        min_ade_colidx = rows[0].index("ADE min")
+        min_ide_colidx = rows[0].index("IDE min")
+        mean_ade_colidx = rows[0].index("ADE mean")
+        mean_ide_colidx = rows[0].index("IDE mean")
+        max_ade_colidx = rows[0].index("ADE max")
+        max_ide_colidx = rows[0].index("IDE max")
+
+        min_ade_lst = []
+        min_ide_lst = []
+        mean_ade_lst = []
+        mean_ide_lst = []
+        max_ade_lst = []
+        max_ide_lst = []
+
+        for row in rows:
+            if row[exp_num_colidx] != str(exp_num):
+                continue
+            min_ade_lst.append(float(row[min_ade_colidx]))
+            min_ide_lst.append(float(row[min_ide_colidx]))
+            mean_ade_lst.append(float(row[mean_ade_colidx]))
+            mean_ide_lst.append(float(row[mean_ide_colidx]))
+            max_ade_lst.append(float(row[max_ade_colidx]))
+            max_ide_lst.append(float(row[max_ide_colidx]))
+
+        # ax.boxplot((mse_lst, fde_lst), labels=("ADE", "FDE"), showfliers=False)
+        ax.scatter([1], min_ade_lst[-1], c="g", label="Own: min")
+        ax.scatter([2], min_ide_lst[-1], c="g")
+        ax.scatter([1], mean_ade_lst[-1], c="c", label="Own: mean")
+        ax.scatter([2], mean_ide_lst[-1], c="c")
+        ax.scatter([1], max_ade_lst[-1], c="b", label="Own: max")
+        ax.scatter([2], max_ide_lst[-1], c="b")
+
+        xticks = [1, 2]
+        margin = 0.5
+        ax.set_xlim(xticks[0] - margin, xticks[1] + margin)
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(["ADE", "IDE"])
+
+
+def centered_traj_pos(pose_vec, vel_vec, center_idx):
+    """
+    takes a pose_vec of shape [trajectory_length, 3], centers it such that the pose_vec[center_idx] is at the origin,
+    and then rotates the trajectory such that the segment described by the trajectory pose_vec[center_idx:center_idx+1]
+    is facing the [x, y, z] == [0, 1, 0] direction.
+    """
+    centered_pos = pose_vec - pose_vec[center_idx]
+
+    # heading = np.arctan2(vel_vec[center_idx + 1, 1], vel_vec[center_idx + 1, 0]) - np.pi/2
+    heading = np.arctan2(centered_pos[center_idx + 1, 1], centered_pos[center_idx + 1, 0]) - np.pi/2
+
+    rot_mat = np.array(
+        [[np.cos(-heading), -np.sin(-heading), 0],
+         [np.sin(-heading), np.cos(-heading), 0],
+         [0, 0, 1]]
+    )
+
+    centered_pos = np.dot(rot_mat, centered_pos.transpose()).transpose()
+
+    return centered_pos
+
+
+def plot_centered_trajectory(ax, centered_pose_vec, center_idx, color):
+    """
+    plots a trajectory using a centered trajectory tensor computed using centered_traj_pos. <center_idx> should be the
+    same value as the one passed to centered_traj_pos. Feel free to uncomment/comment the portions you want here
+    (top row corresponds to future of the trajectory from timestamp center_idx, bottom row is the past of the trajectory)
+    """
+    ax.plot(centered_pose_vec[center_idx + 1:, 0], centered_pose_vec[center_idx + 1:, 1], color=color, alpha=0.5)
+    # ax.plot(centered_pose_vec[:center_idx + 1, 0], centered_pose_vec[:center_idx + 1, 1], color='grey', linestyle='dashed')
+
+
+def describe_motion(centered_pose_vec):
+    """
+    Determines if the trajectory is a turn in a direction, a straight line forward, a stop, or backward motion.
+    The method assumes two heuristics for determining the class of a trajectory:
+        - an idle radius, which determines the distance by which a pedestrian needs to have moved in a trajectory
+        in order for it to not be considered idle.
+        - an angle value, which is evaluated at both the left and right of the heading of the trajectory
+        at its first timestamp. if the final position lies outside those bounds, the trajectory will then be considered
+        either 'left' or 'right'
+
+    Let it be noted that trajectories which end behind the orthogonal line to the heading at timestamp 0 are considered
+    as 'backward' motion.
+    """
+    idle_radius = 0.3           # [meters]
+    straight_line_angle = 10        # [degrees]
+    if np.linalg.norm(centered_pose_vec[-1]) < idle_radius:
+        return "idle"
+    elif centered_pose_vec[-1, 1] < 0:
+        return "backward"
+    elif np.abs(np.arctan2(centered_pose_vec[-1, 0], centered_pose_vec[-1, 1])) < straight_line_angle * np.pi/180:
+        return "forward"
+    elif centered_pose_vec[-1, 0] < 0:
+        return "left"
+    else:
+        return "right"
+

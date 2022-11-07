@@ -12,56 +12,6 @@ import numpy as np
 import math
 
 
-def centered_traj_pos(pose_vec, vel_vec, center_idx):
-    """
-    takes a pose_vec of shape [trajectory_length, 3], centers it such that the pose_vec[center_idx] is at the origin,
-    and then rotates the trajectory such that the segment described by the trajectory pose_vec[center_idx:center_idx+1]
-    is facing the [x, y, z] == [0, 1, 0] direction.
-    """
-    centered_pos = pose_vec - pose_vec[center_idx]
-
-    # heading = np.arctan2(vel_vec[center_idx + 1, 1], vel_vec[center_idx + 1, 0]) - np.pi/2
-    heading = np.arctan2(centered_pos[center_idx + 1, 1], centered_pos[center_idx + 1, 0]) - np.pi/2
-
-    rot_mat = np.array(
-        [[np.cos(-heading), -np.sin(-heading), 0],
-         [np.sin(-heading), np.cos(-heading), 0],
-         [0, 0, 1]]
-    )
-
-    centered_pos = np.dot(rot_mat, centered_pos.transpose()).transpose()
-
-    return centered_pos
-
-def plot_trajectory(ax, centered_pose_vec, center_idx, color):
-    ax.plot(centered_pose_vec[center_idx + 1:, 0], centered_pose_vec[center_idx + 1:, 1], color=color, alpha=0.5)
-    # ax.plot(centered_pose_vec[:center_idx + 1, 0], centered_pose_vec[:center_idx + 1, 1], color='grey', linestyle='dashed')
-
-def describe_motion(centered_pose_vec):
-    """
-    Determines if the trajectory is a turn in a direction, a straight line forward, a stop, or backward motion
-    """
-    idle_radius = 0.3           # [meters]
-    straight_line_angle = 10        # [degrees]
-    if np.linalg.norm(centered_pose_vec[-1]) < idle_radius:
-        return "idle"
-    elif centered_pose_vec[-1, 1] < 0:
-        return "backward"
-    elif np.abs(np.arctan2(centered_pose_vec[-1, 0], centered_pose_vec[-1, 1])) < straight_line_angle * np.pi/180:
-        return "forward"
-    elif centered_pose_vec[-1, 0] < 0:
-        return "left"
-    else:
-        return "right"
-
-
-def compute_average_curvature(centered_pose_vec):
-    """
-    Determines the trajectory's average curvature
-    """
-    pass #TODO
-
-
 if __name__ == '__main__':
     # Parsing arguments and printing a summary
     args = config.parse_args()
@@ -194,7 +144,7 @@ if __name__ == '__main__':
                 pose_segment_t0_Tpred = pose_segment[t0_idx:]
                 vel_segment_t0_Tpred = vel_segment[t0_idx:]
 
-                centered_pose_vec = centered_traj_pos(pose_segment, vel_segment, t0_idx)
+                centered_pose_vec = plot_utils.centered_traj_pos(pose_segment, vel_segment, t0_idx)
 
                 distance_Tobs_Tpred = np.linalg.norm(pose_segment[0] - pose_segment[-1])
                 distance_Tobs_t0 = np.linalg.norm(pose_segment_Tobs_t0[0] - pose_segment_Tobs_t0[-1])
@@ -216,14 +166,14 @@ if __name__ == '__main__':
                 ax5.set_xticks([0.5, 3.5, 6.5])
                 ax5.set_xticklabels(["-Tobs:t0", "t0:Tpred", "-Tobs:Tpred"])
 
-                direction = describe_motion(centered_pose_vec)
+                direction = plot_utils.describe_motion(centered_pose_vec)
                 directions_instances.setdefault(direction, 0)
                 directions_instances[direction] += 1
 
                 direction_color = dir_colors[direction]
 
                 if agent_in_training_set:
-                    plot_trajectory(ax3, centered_pose_vec, center_idx=t0_idx, color=direction_color)
+                    plot_utils.plot_centered_trajectory(ax3, centered_pose_vec, center_idx=t0_idx, color=direction_color)
 
                 start_idx += args.truncated_backprop_length
                 training_instances += 1
