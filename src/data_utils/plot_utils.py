@@ -1449,12 +1449,12 @@ def print_args(parsed_args: argparse.Namespace, spacing: int = 40) -> None:
     return None
 
 
-def plot_ADE_FDE_runs(ax, model_name: str, exp_num: int):
+def plot_ADE_FDE_runs(ax, model_name: str, exp_num: int, csv_spec: str = ""):
     """
-    reads through the <model_name>_summary.csv file (inside the src folder), looks for experiments performed with model <exp_num>. plots the
+    reads through the <model_name>_summary<csv_spec>.csv file (inside the src folder), looks for experiments performed with model <exp_num>. plots the
     resulting ADE and FDE errors on ax.
     """
-    pathname = os.path.abspath(os.path.join(os.path.abspath(__file__), f"../../{model_name}_summary.csv"))
+    pathname = os.path.abspath(os.path.join(os.path.abspath(__file__), f"../../{model_name}_summary{csv_spec}.csv"))
     assert os.path.exists(pathname)
     with open(pathname) as file:
         csvreader = csv.reader(file)

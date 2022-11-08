@@ -7,6 +7,7 @@ import src.data_utils.plot_utils
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import src.data_utils.utils
+import uuid
 
 here = os.path.abspath(__file__)
 
@@ -158,7 +159,7 @@ def final_losses_LSTM_networks():
         print("\n\n")
 
 
-def compare_ADE_FDE_results(model_name, runs, common_args, compare_args, show=False):
+def compare_ADE_FDE_results(model_name, runs, common_args, compare_args, window_id=None, csv_spec="", show=False):
     # plt.rcParams['font.family'] = 'monospace'
 
     base_path = os.path.abspath(os.path.join(os.path.dirname(here), f"../trained_models/{model_name}"))
@@ -172,7 +173,8 @@ def compare_ADE_FDE_results(model_name, runs, common_args, compare_args, show=Fa
 
     gs = gridspec.GridSpec(nrows=2, ncols=len(runs) + 1, width_ratios=width_ratios, height_ratios=height_ratios)
 
-    fig = plt.figure()
+    fig = plt.figure(f"ADE/FDE performance - {model_name}_summary{csv_spec}.csv - {window_id}")
+
     fig_ax1 = fig.add_subplot(gs[0, 0])
     fig_ax1.axis('off')
 
@@ -196,7 +198,7 @@ def compare_ADE_FDE_results(model_name, runs, common_args, compare_args, show=Fa
             param_dict = json.load(f)
 
         fig_ax = fig.add_subplot(gs[0, idx + 1], sharey=fig_ax1)
-        src.data_utils.plot_utils.plot_ADE_FDE_runs(fig_ax, model_name=model_name, exp_num=exp_num)
+        src.data_utils.plot_utils.plot_ADE_FDE_runs(fig_ax, model_name=model_name, exp_num=exp_num, csv_spec=csv_spec)
 
         ade_fde_pos = [1, 2]
         margin = 0.5
@@ -416,29 +418,34 @@ if __name__ == '__main__':
     # plt.show()
 
 
-    # LSTM Encoder Decoder
-    compare_args = ["scenario", "consistent_time_signal"]
-
-    experiments = [
-        [120, 121, 122, 123, 124],  # old
-        [100, 101, 102, 103, 104],  # new
-        [120, 121, 122, 123, 124, 100, 101, 102, 103, 104]  # old vs new
-    ]
-    for runs in experiments:
-        compare_lstmed_results(
-            runs=runs,
-            compare_args=compare_args
-        )
-    plt.show()
+    # # LSTM Encoder Decoder
+    # compare_args = ["scenario", "consistent_time_signal"]
+    #
+    # experiments = [
+    #     [120, 121, 122, 123, 124],  # old
+    #     [100, 101, 102, 103, 104],  # new
+    #     [120, 121, 122, 123, 124, 100, 101, 102, 103, 104]  # old vs new
+    # ]
+    # for runs in experiments:
+    #     compare_lstmed_results(
+    #         runs=runs,
+    #         compare_args=compare_args
+    #     )
+    # plt.show()
 
 
     # PROPER RERUNS
+
+    # csv_spec = ""
+    # csv_spec = "_fixed_batch_pos"
+    csv_spec = "_removed_idles"
+
     common_args = ["scenario"]
     compare_args = [
         "exp_num",
         "warm_start_convnet", "freeze_grid_cnn",
         "warm_start_query_agent_module", "freeze_query_agent_module",
-        "warmstart_model"
+        # "warmstart_model"
     ]
 
     # "old": inconsistent time signal across truncations
@@ -464,14 +471,18 @@ if __name__ == '__main__':
         [80000000122, 80000001122, 80000002122, 80000003122],  # duplicate runs
         [80000000132, 80000001132, 80000002132, 80000003132]  # duplicate runs
     ]
-    for runs in experiments:
+    for id, runs in enumerate(experiments):
         compare_ADE_FDE_results(
             model_name="SocialVRNN_LSTM_ED",
             runs=runs,
             common_args=common_args,
-            compare_args=compare_args
+            compare_args=compare_args,
+            window_id=id,
+            csv_spec=csv_spec
         )
+    plt.show()
 
+    # flags
     common_args = ["scenario"]
     compare_args = [
         "exp_num",
@@ -484,11 +495,15 @@ if __name__ == '__main__':
         [80000000102, 80000010102, 80000020102, 80000030102, 80000040102, 80000050102],  # Special Flags
         [80000000102, 80000010102, 80000020102, 80000030102, 80000040102]  # Special Flags
     ]
-    for runs in experiments:
+    for id, runs in enumerate(experiments):
         compare_ADE_FDE_results(
             model_name="SocialVRNN_LSTM_ED",
             runs=runs,
             common_args=common_args,
-            compare_args=compare_args
+            compare_args=compare_args,
+            window_id=id,
+            csv_spec=csv_spec
         )
     plt.show()
+
+
