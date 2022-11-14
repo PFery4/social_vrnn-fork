@@ -419,28 +419,32 @@ if __name__ == '__main__':
 
 
     # # LSTM Encoder Decoder
-    # compare_args = ["scenario", "consistent_time_signal"]
-    #
-    # experiments = [
-    #     [120, 121, 122, 123, 124],  # old
-    #     [100, 101, 102, 103, 104],  # new
-    #     [120, 121, 122, 123, 124, 100, 101, 102, 103, 104]  # old vs new
-    # ]
-    # for runs in experiments:
-    #     compare_lstmed_results(
-    #         runs=runs,
-    #         compare_args=compare_args
-    #     )
-    # plt.show()
+    compare_args = [
+        "scenario", "consistent_time_signal", "truncated_backprop_length"
+    ]
 
+    experiments = [
+        [120, 121, 122, 123, 124],  # old
+        [100, 101, 102, 103, 104],  # new
+        # [120, 121, 122, 123, 124, 100, 101, 102, 103, 104],  # old vs new
+        # [102, 1002],  # no truncation, with truncation
+        # [100, 8000],
+        # [102, 8002]
+    ]
+    for runs in experiments:
+        compare_lstmed_results(
+            runs=runs,
+            compare_args=compare_args
+        )
+    plt.show()
 
     # PROPER RERUNS
 
     # csv_spec = ""
-    # csv_spec = "_fixed_batch_pos"
-    csv_spec = "_removed_idles"
+    csv_spec = "_fixed_batch_pos"
+    # csv_spec = "_removed_idles"
 
-    common_args = ["scenario"]
+    common_args = ["scenario", "truncated_backprop_length", "prev_horizon", "prediction_horizon"]
     compare_args = [
         "exp_num",
         "warm_start_convnet", "freeze_grid_cnn",
@@ -461,11 +465,11 @@ if __name__ == '__main__':
         # [80000000102, 80000000112, 80000000122, 80000000132],  # "new" st
         # [80000000103, 80000000113, 80000000123, 80000000133],  # "new" zara1
         # [80000000104, 80000000114, 80000000124, 80000000134],  # "new" zara2
-        [80000000000, 80000000010, 80000000020, 80000000030, 80000000100, 80000000110, 80000000120, 80000000130],  # "old vs new" hotel
-        [80000000001, 80000000011, 80000000021, 80000000031, 80000000101, 80000000111, 80000000121, 80000000131],  # "old vs new" eth
-        [80000000002, 80000000012, 80000000022, 80000000032, 80000000102, 80000000112, 80000000122, 80000000132],  # "old vs new" st
-        [80000000003, 80000000013, 80000000023, 80000000033, 80000000103, 80000000113, 80000000123, 80000000133],  # "old vs new" zara1
-        [80000000004, 80000000014, 80000000024, 80000000034, 80000000104, 80000000114, 80000000124, 80000000134],  # "old vs new" zara2
+        # [80000000000, 80000000010, 80000000020, 80000000030, 80000000100, 80000000110, 80000000120, 80000000130],  # "old vs new" hotel
+        # [80000000001, 80000000011, 80000000021, 80000000031, 80000000101, 80000000111, 80000000121, 80000000131],  # "old vs new" eth
+        # [80000000002, 80000000012, 80000000022, 80000000032, 80000000102, 80000000112, 80000000122, 80000000132],  # "old vs new" st
+        # [80000000003, 80000000013, 80000000023, 80000000033, 80000000103, 80000000113, 80000000123, 80000000133],  # "old vs new" zara1
+        # [80000000004, 80000000014, 80000000024, 80000000034, 80000000104, 80000000114, 80000000124, 80000000134],  # "old vs new" zara2
         [80000000102, 80000001102, 80000002102, 80000003102],  # duplicate runs
         [80000000112, 80000001112, 80000002112, 80000003112],  # duplicate runs
         [80000000122, 80000001122, 80000002122, 80000003122],  # duplicate runs
@@ -492,7 +496,7 @@ if __name__ == '__main__':
     ]
 
     experiments = [
-        [80000000102, 80000010102, 80000020102, 80000030102, 80000040102, 80000050102],  # Special Flags
+        # [80000000102, 80000010102, 80000020102, 80000030102, 80000040102, 80000050102],  # Special Flags
         [80000000102, 80000010102, 80000020102, 80000030102, 80000040102]  # Special Flags
     ]
     for id, runs in enumerate(experiments):
@@ -506,4 +510,30 @@ if __name__ == '__main__':
         )
     plt.show()
 
+    csv_spec = ""
+
+    common_args = ["scenario"]
+    compare_args = [
+        "exp_num",
+        "warm_start_convnet", "freeze_grid_cnn",
+        "warm_start_query_agent_module", "freeze_query_agent_module",
+        "prev_horizon", "truncated_backprop_length", "prediction_horizon"
+    ]
+
+    # # "old": inconsistent time signal across truncations
+    # # "new": consistent time signal across truncations
+    # experiments = [
+    #     [82000000100, 82000000110, 82000000120, 82000000130],
+    #     [82000000102, 82000000112, 82000000122, 82000000132]
+    # ]
+    # for id, runs in enumerate(experiments):
+    #     compare_ADE_FDE_results(
+    #         model_name="SocialVRNN_LSTM_ED",
+    #         runs=runs,
+    #         common_args=common_args,
+    #         compare_args=compare_args,
+    #         window_id=id,
+    #         csv_spec=csv_spec
+    #     )
+    # plt.show()
 
