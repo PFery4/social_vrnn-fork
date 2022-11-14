@@ -1571,14 +1571,25 @@ def centered_traj_pos(pose_vec, vel_vec, center_idx):
     return centered_pos
 
 
-def plot_centered_trajectory(ax, centered_pose_vec, center_idx, color):
+def plot_centered_trajectory(ax, centered_pose_vec, center_idx, color, past=False, future=True):
     """
     plots a trajectory using a centered trajectory tensor computed using centered_traj_pos. <center_idx> should be the
     same value as the one passed to centered_traj_pos. Feel free to uncomment/comment the portions you want here
     (top row corresponds to future of the trajectory from timestamp center_idx, bottom row is the past of the trajectory)
     """
-    ax.plot(centered_pose_vec[center_idx + 1:, 0], centered_pose_vec[center_idx + 1:, 1], color=color, alpha=0.5)
-    # ax.plot(centered_pose_vec[:center_idx + 1, 0], centered_pose_vec[:center_idx + 1, 1], color='grey', linestyle='dashed')
+    if past:
+        ax.plot(
+            centered_pose_vec[:center_idx + 1, 0], centered_pose_vec[:center_idx + 1, 1],
+            color=color,
+            alpha=0.5,
+            # linestyle='dashed'
+        )
+    if future:
+        ax.plot(
+            centered_pose_vec[center_idx + 1:, 0], centered_pose_vec[center_idx + 1:, 1],
+            color=color,
+            alpha=0.5
+        )
 
 
 def describe_motion(centered_pose_vec):
