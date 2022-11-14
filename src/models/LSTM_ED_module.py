@@ -69,7 +69,7 @@ class LSTMEncoderDecoder:
         # self.remade_input_after_mask = self.apply_mask(tensor=self.input_placeholder)
         # self.correct_mask_op = tf.assert_equal(self.input_placeholder, self.remade_input_after_mask)
 
-        # Optimizer specifiation
+        # Optimizer specification
         self.learning_rate = 1e-3
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
 
@@ -646,6 +646,13 @@ def train_LSTM_ED_module():
 
             loss = lstm_ae_module.run_update_step(sess=session, input_data=new_batch_vel)
             train_losses.append(loss.item())
+
+            # ### WIPCODE
+            # print("GT")
+            # print(new_batch_vel)
+            # print("PRED")
+            # print(lstm_ae_module.reconstruct(sess=session, input_dict=lstm_ae_module.feed_dic(input_data=new_batch_vel), update_state=False))
+            # ### WIPCODE
 
             if step % log_freq == 0:
                 testbatch = data_prep.getTestBatch()
