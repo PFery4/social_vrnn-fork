@@ -29,19 +29,21 @@
 
 
 python3 models/LSTM_ED_module.py --lstmed_exp_num 100 --total_training_steps 20000 --scenario "real_world/ewap_dataset/seq_hotel";
-python3 models/LSTM_ED_module.py --lstmed_exp_num 120 --total_training_steps 20000 --scenario "real_world/ewap_dataset/seq_hotel" --lstmed_consistent_time_signal false;
+#python3 models/LSTM_ED_module.py --lstmed_exp_num 120 --total_training_steps 20000 --scenario "real_world/ewap_dataset/seq_hotel" --lstmed_consistent_time_signal false;
 
 python3 models/LSTM_ED_module.py --lstmed_exp_num 101 --total_training_steps 20000 --scenario "real_world/ewap_dataset/seq_eth";
-python3 models/LSTM_ED_module.py --lstmed_exp_num 121 --total_training_steps 20000 --scenario "real_world/ewap_dataset/seq_eth" --lstmed_consistent_time_signal false;
+#python3 models/LSTM_ED_module.py --lstmed_exp_num 121 --total_training_steps 20000 --scenario "real_world/ewap_dataset/seq_eth" --lstmed_consistent_time_signal false;
 
 python3 models/LSTM_ED_module.py --lstmed_exp_num 102 --total_training_steps 20000 --scenario "real_world/st";
-python3 models/LSTM_ED_module.py --lstmed_exp_num 122 --total_training_steps 20000 --scenario "real_world/st" --lstmed_consistent_time_signal false;
+#python3 models/LSTM_ED_module.py --lstmed_exp_num 122 --total_training_steps 20000 --scenario "real_world/st" --lstmed_consistent_time_signal false;
 
 python3 models/LSTM_ED_module.py --lstmed_exp_num 103 --total_training_steps 20000 --scenario "real_world/zara_01";
-python3 models/LSTM_ED_module.py --lstmed_exp_num 123 --total_training_steps 20000 --scenario "real_world/zara_01" --lstmed_consistent_time_signal false;
+#python3 models/LSTM_ED_module.py --lstmed_exp_num 123 --total_training_steps 20000 --scenario "real_world/zara_01" --lstmed_consistent_time_signal false;
 
 python3 models/LSTM_ED_module.py --lstmed_exp_num 104 --total_training_steps 20000 --scenario "real_world/zara_02";
-python3 models/LSTM_ED_module.py --lstmed_exp_num 124 --total_training_steps 20000 --scenario "real_world/zara_02" --lstmed_consistent_time_signal false;
+#python3 models/LSTM_ED_module.py --lstmed_exp_num 124 --total_training_steps 20000 --scenario "real_world/zara_02" --lstmed_consistent_time_signal false;
+
+
 
 # python3 models/LSTM_ED_module.py --lstmed_exp_num 110 --total_training_steps 20000 --scenario "real_world/ewap_dataset/seq_hotel" --lstmed_reverse_time_prediction true;
 # python3 models/LSTM_ED_module.py --lstmed_exp_num 111 --total_training_steps 20000 --scenario "real_world/ewap_dataset/seq_eth" --lstmed_reverse_time_prediction true;
