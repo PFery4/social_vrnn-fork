@@ -287,10 +287,10 @@ class LSTMEncoderDecoder:
 
     def update_states(self, state_list, test_states=False):
         """
-        out_list is the list of cell and hidden state value obtained after performing a session run. That list of cells
+        state_list is the list of cell and hidden state value obtained after performing a session run. That list of cells
         corresponds to the formatting of the output of self.cell_states_list()
         """
-        attr_str = "" if test_states else "test_"
+        attr_str = "test_" if test_states else ""
 
         for i in range(len(self.encoding_layers_dim)):
             setattr(self, f"enc_{i}_{attr_str}cell_state_current", state_list[i][0])
@@ -506,6 +506,20 @@ class LSTMEncoderDecoder:
         remade_input_after_mask = tf.stack(remade_input_list, axis=1)
         remade_input_after_mask = tf.reverse(remade_input_after_mask, axis=[1])
         return remade_input_after_mask
+
+    def get_lstm_states(self, statetype='hidden', test_states=False):
+        """
+        <statetype> can be 'hidden' or 'cell'
+        """
+        cell_type_str = "test_" if test_states else ""
+
+        test_states_dict = {}
+        for i in range(len(self.encoding_layers_dim)):
+            enc_attr_str = f"enc_{i}_{cell_type_str}{statetype}_state_current"
+            dec_attr_str = f"dec_{i}_{cell_type_str}{statetype}_state_current"
+            test_states_dict[enc_attr_str] = getattr(self, enc_attr_str).copy()
+            test_states_dict[dec_attr_str] = getattr(self, dec_attr_str).copy()
+        return test_states_dict
 
 
 def load_LSTM_ED_module(experiment_number, sess, testing=True):
@@ -979,6 +993,12 @@ def show_reconstruction_examples():
                 input_dict = lstm_ae_module.feed_test_dic(input_data=batch_vel, step=timestep, state_noise=0.0)
                 timestep_pred = lstm_ae_module.reconstruct(sess=sess, input_dict=input_dict, update_state=True)
                 # timestep_pred.shape --> [1, 1, n_features]
+
+                # print("\n\n\n\n")
+                # print("batch_vel[:, timestep, :] --> ", batch_vel[:, timestep, :])
+                # print(lstm_ae_module.get_lstm_states(statetype='hidden', test_states=True))
+                # print(lstm_ae_module.get_lstm_states(statetype='cell', test_states=True))
+                # print("\n\n\n\n")
 
                 batch_pred.append(timestep_pred[0])
             batch_pred = np.stack(batch_pred, axis=1)
