@@ -11,17 +11,18 @@ import src.data_utils.Support as sup
 import numpy as np
 
 
+
 if __name__ == '__main__':
     # Parsing arguments and printing a summary
     args = config.parse_args()
     plot_utils.print_args(args)
 
     scenarii = [
-        "real_world/ewap_dataset/seq_hotel",
-        "real_world/ewap_dataset/seq_eth",
-        "real_world/st",
         "real_world/zara_01",
-        "real_world/zara_02"
+        "real_world/zara_02",
+        "real_world/st",
+        "real_world/ewap_dataset/seq_hotel",
+        "real_world/ewap_dataset/seq_eth"
     ]
     args_list = []
     data_preps = []
@@ -52,6 +53,8 @@ if __name__ == '__main__':
         data_preps.append(data_prep)
 
         print(f"created datahandler with scenario: {data_prep.scenario}")
+        
+    across_fig, across_axs = plt.subplots(1, len(scenarii))
 
     for data_prep_idx, data_prep in enumerate(data_preps):
         print(f"PROCESSING DATAPREP: {data_prep.scenario}")
@@ -75,6 +78,8 @@ if __name__ == '__main__':
         #     batch_pos_target, \
         #     other_agents_pos, \
         #     new_epoch = data_prep.getBatch()
+
+
 
         fig1, (ax1) = plt.subplots(1, 1)
         fig2, (ax2, ax3) = plt.subplots(1, 2)
@@ -134,6 +139,7 @@ if __name__ == '__main__':
         directions_instances = {}
 
         # for each trajectory, the list will be appended with its average speed
+        trajectories_average_velocities = []
         train_trajectories_average_velocities = []
         test_trajectories_average_velocities = []
 
@@ -157,81 +163,84 @@ if __name__ == '__main__':
                 color = "grey"
                 discarded_trajectories += 1
                 skip = True
-
-            agent_data_obj.plot(ax1, color=color, x_scale=1, y_scale=1)
-
-            if skip:
-                continue
-
-            traj_avg_speed = np.mean(np.linalg.norm(agent_data_obj.trajectories[0].vel_vec, axis=1))
-            if agent_in_training_set:
-                ax9.scatter(0, traj_avg_speed, color=color, alpha=0.5)
-                train_trajectories_average_velocities.append(traj_avg_speed)
-
-            if agent_in_testing_set:
-                ax9.scatter(1, traj_avg_speed, color=color, alpha=0.5)
-                test_trajectories_average_velocities.append(traj_avg_speed)
-
-            start_idx = args.prev_horizon
-            while start_idx + args.truncated_backprop_length + args.prediction_horizon + 1 < len(agent_data_obj.trajectories[0]):
-                begin_idx = start_idx-args.prev_horizon
-                end_idx = start_idx+args.truncated_backprop_length+args.prediction_horizon + 1
-
-                time_segment = agent_data_obj.trajectories[0].time_vec[begin_idx:end_idx]
-                pose_segment = agent_data_obj.trajectories[0].pose_vec[begin_idx:end_idx]
-                vel_segment = agent_data_obj.trajectories[0].vel_vec[begin_idx:end_idx]
-
-                t0_idx = args.prev_horizon + args.truncated_backprop_length
-
-                pose_segment_Tobs_t0 = pose_segment[:t0_idx + 1]
-                vel_segment_Tobs_t0 = vel_segment[:t0_idx + 1]
-                pose_segment_t0_Tpred = pose_segment[t0_idx:]
-                vel_segment_t0_Tpred = vel_segment[t0_idx:]
-
-                centered_pose_vec = plot_utils.centered_traj_pos(pose_segment, vel_segment, t0_idx)
-
-                distance_Tobs_Tpred = np.linalg.norm(pose_segment[0] - pose_segment[-1])
-                distance_Tobs_t0 = np.linalg.norm(pose_segment_Tobs_t0[0] - pose_segment_Tobs_t0[-1])
-                distance_t0_Tpred = np.linalg.norm(pose_segment_t0_Tpred[0] - pose_segment_t0_Tpred[-1])
-
-                average_velocity_Tobs_Tpred = np.mean(np.linalg.norm(vel_segment, axis=1))
-                average_velocity_Tobs_t0 = np.mean(np.linalg.norm(vel_segment_Tobs_t0, axis=1))
-                average_velocity_t0_Tpred = np.mean(np.linalg.norm(vel_segment_t0_Tpred, axis=1))
-
-                ax7.scatter(0 + int(agent_in_testing_set) + np.random.normal(0, 0.1), average_velocity_Tobs_t0, color=color, alpha=0.5)
-                ax8.scatter(0 + int(agent_in_testing_set) + np.random.normal(0, 0.1), distance_Tobs_t0, color=color, alpha=0.5)
-                ax7.scatter(3 + int(agent_in_testing_set) + np.random.normal(0, 0.1), average_velocity_t0_Tpred, color=color, alpha=0.5)
-                ax8.scatter(3 + int(agent_in_testing_set) + np.random.normal(0, 0.1), distance_t0_Tpred, color=color, alpha=0.5)
-                ax7.scatter(6 + int(agent_in_testing_set) + np.random.normal(0, 0.1), average_velocity_Tobs_Tpred, color=color, alpha=0.5)
-                ax8.scatter(6 + int(agent_in_testing_set) + np.random.normal(0, 0.1), distance_Tobs_Tpred, color=color, alpha=0.5)
-
-                direction = plot_utils.describe_motion(centered_pose_vec)
-                directions_instances.setdefault(direction, 0)
-                directions_instances[direction] += 1
-
-                direction_color = dir_colors[direction]
-
-                if agent_in_training_set:
-                    plot_utils.plot_centered_trajectory(
-                        ax2, centered_pose_vec, center_idx=t0_idx, color=direction_color, past=True, future=False
-                    )
-                    plot_utils.plot_centered_trajectory(
-                        ax3, centered_pose_vec, center_idx=t0_idx, color=direction_color
-                    )
-                    plot_utils.plot_centered_trajectory(
-                        ax4, centered_pose_vec, center_idx=t0_idx, color='red', past=True, future=False
-                    )
-                    plot_utils.plot_centered_trajectory(
-                        ax5, centered_pose_vec, center_idx=t0_idx,color='red'
-                    )
-
-                start_idx += args.truncated_backprop_length
-                training_instances += 1
-
-            if counter == -1:
-                break
+        #
+        #     agent_data_obj.plot(ax1, color=color, x_scale=1, y_scale=1)
+        #
+        #     if skip:
+        #         continue
+        #
+        #     traj_avg_speed = np.mean(np.linalg.norm(agent_data_obj.trajectories[0].vel_vec, axis=1))
+        #     trajectories_average_velocities.append(traj_avg_speed)
+        #
+        #     if agent_in_training_set:
+        #         ax9.scatter(0, traj_avg_speed, color=color, alpha=0.5)
+        #         train_trajectories_average_velocities.append(traj_avg_speed)
+        #
+        #     if agent_in_testing_set:
+        #         ax9.scatter(1, traj_avg_speed, color=color, alpha=0.5)
+        #         test_trajectories_average_velocities.append(traj_avg_speed)
+        #
+        #     start_idx = args.prev_horizon
+        #     while start_idx + args.truncated_backprop_length + args.prediction_horizon + 1 < len(agent_data_obj.trajectories[0]):
+        #         begin_idx = start_idx-args.prev_horizon
+        #         end_idx = start_idx+args.truncated_backprop_length+args.prediction_horizon + 1
+        #
+        #         time_segment = agent_data_obj.trajectories[0].time_vec[begin_idx:end_idx]
+        #         pose_segment = agent_data_obj.trajectories[0].pose_vec[begin_idx:end_idx]
+        #         vel_segment = agent_data_obj.trajectories[0].vel_vec[begin_idx:end_idx]
+        #
+        #         t0_idx = args.prev_horizon + args.truncated_backprop_length
+        #
+        #         pose_segment_Tobs_t0 = pose_segment[:t0_idx + 1]
+        #         vel_segment_Tobs_t0 = vel_segment[:t0_idx + 1]
+        #         pose_segment_t0_Tpred = pose_segment[t0_idx:]
+        #         vel_segment_t0_Tpred = vel_segment[t0_idx:]
+        #
+        #         centered_pose_vec = plot_utils.centered_traj_pos(pose_segment, vel_segment, t0_idx)
+        #
+        #         distance_Tobs_Tpred = np.linalg.norm(pose_segment[0] - pose_segment[-1])
+        #         distance_Tobs_t0 = np.linalg.norm(pose_segment_Tobs_t0[0] - pose_segment_Tobs_t0[-1])
+        #         distance_t0_Tpred = np.linalg.norm(pose_segment_t0_Tpred[0] - pose_segment_t0_Tpred[-1])
+        #
+        #         average_velocity_Tobs_Tpred = np.mean(np.linalg.norm(vel_segment, axis=1))
+        #         average_velocity_Tobs_t0 = np.mean(np.linalg.norm(vel_segment_Tobs_t0, axis=1))
+        #         average_velocity_t0_Tpred = np.mean(np.linalg.norm(vel_segment_t0_Tpred, axis=1))
+        #
+        #         ax7.scatter(0 + int(agent_in_testing_set) + np.random.normal(0, 0.1), average_velocity_Tobs_t0, color=color, alpha=0.5)
+        #         ax8.scatter(0 + int(agent_in_testing_set) + np.random.normal(0, 0.1), distance_Tobs_t0, color=color, alpha=0.5)
+        #         ax7.scatter(3 + int(agent_in_testing_set) + np.random.normal(0, 0.1), average_velocity_t0_Tpred, color=color, alpha=0.5)
+        #         ax8.scatter(3 + int(agent_in_testing_set) + np.random.normal(0, 0.1), distance_t0_Tpred, color=color, alpha=0.5)
+        #         ax7.scatter(6 + int(agent_in_testing_set) + np.random.normal(0, 0.1), average_velocity_Tobs_Tpred, color=color, alpha=0.5)
+        #         ax8.scatter(6 + int(agent_in_testing_set) + np.random.normal(0, 0.1), distance_Tobs_Tpred, color=color, alpha=0.5)
+        #
+        #         direction = plot_utils.describe_motion(centered_pose_vec)
+        #         directions_instances.setdefault(direction, 0)
+        #         directions_instances[direction] += 1
+        #
+        #         direction_color = dir_colors[direction]
+        #
+        #         if agent_in_training_set:
+        #             plot_utils.plot_centered_trajectory(
+        #                 ax2, centered_pose_vec, center_idx=t0_idx, color=direction_color, past=True, future=False
+        #             )
+        #             plot_utils.plot_centered_trajectory(
+        #                 ax3, centered_pose_vec, center_idx=t0_idx, color=direction_color
+        #             )
+        #             plot_utils.plot_centered_trajectory(
+        #                 ax4, centered_pose_vec, center_idx=t0_idx, color='red', past=True, future=False
+        #             )
+        #             plot_utils.plot_centered_trajectory(
+        #                 ax5, centered_pose_vec, center_idx=t0_idx,color='red'
+        #             )
+        #
+        #         start_idx += args.truncated_backprop_length
+        #         training_instances += 1
+        #
+        #     if counter == -1:
+        #         break
 
         print("Velocities:")
+        print(f"Whole set:      mean={np.mean(trajectories_average_velocities)}, std={np.std(trajectories_average_velocities)}")
         print(f"Training set:   mean={np.mean(train_trajectories_average_velocities)}, std={np.std(train_trajectories_average_velocities)}")
         print(f"Test set:       mean={np.mean(test_trajectories_average_velocities)}, std={np.std(test_trajectories_average_velocities)}")
 
@@ -249,10 +258,18 @@ if __name__ == '__main__':
             else:
                 color = "grey"
             ax6.bar(x=key, height=value, color=color)
+            across_axs[data_prep_idx].bar(x=key, height=value, color=color)
 
         total_trajectories = train_trajectories + discarded_trajectories
         ax6.text(x=0.2 * (ax6.get_xlim()[1] - ax6.get_xlim()[0]), y=ax6.get_ylim()[1] - 1, s=f"Kept: {train_trajectories} ({train_trajectories / total_trajectories * 100:.2f}% of total dataset)", color="red")
         ax6.text(x=0.2 * (ax6.get_xlim()[1] - ax6.get_xlim()[0]), y=ax6.get_ylim()[1] - 2, s=f"Discarded: {discarded_trajectories}", color="grey")
         ax6.text(x=0.2 * (ax6.get_xlim()[1] - ax6.get_xlim()[0]), y=ax6.get_ylim()[1] - 3, s=f"Total: {total_trajectories}")
+        
+        across_axs[data_prep_idx].text(x=0.2 * (across_axs[data_prep_idx].get_xlim()[1] - across_axs[data_prep_idx].get_xlim()[0]), y=across_axs[data_prep_idx].get_ylim()[1] - 3, s=f"Kept: {train_trajectories}\n({train_trajectories / total_trajectories * 100:.2f}% of total dataset)", color="red")
+        across_axs[data_prep_idx].text(x=0.2 * (across_axs[data_prep_idx].get_xlim()[1] - across_axs[data_prep_idx].get_xlim()[0]), y=across_axs[data_prep_idx].get_ylim()[1] - 5, s=f"Discarded: {discarded_trajectories}", color="grey")
+        across_axs[data_prep_idx].text(x=0.2 * (across_axs[data_prep_idx].get_xlim()[1] - across_axs[data_prep_idx].get_xlim()[0]), y=across_axs[data_prep_idx].get_ylim()[1] - 7, s=f"Total: {total_trajectories}")
+
+
+        
 
     plt.show()
